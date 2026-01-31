@@ -1,3 +1,6 @@
+"""
+Налаштування логування
+"""
 import logging
 from logging.handlers import RotatingFileHandler
 import os
@@ -7,7 +10,9 @@ LOG_FILE = os.path.join(LOG_DIR, "bot.log")
 
 os.makedirs(LOG_DIR, exist_ok=True)
 
+
 def setup_logging():
+    """Налаштовує логування"""
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
 

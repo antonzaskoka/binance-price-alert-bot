@@ -1,7 +1,10 @@
+"""
+Головний файл бота
+"""
 # ==============================
 # LOGGING
 # ==============================
-from logging_config import setup_logging
+from utils.logging_config import setup_logging
 setup_logging()
 
 import logging
@@ -11,410 +14,198 @@ logger = logging.getLogger(__name__)
 # IMPORTS
 # ==============================
 import time
-import sqlite3
 import requests
-from datetime import datetime, timezone, timedelta
-import os
-import json
-import pandas as pd
-import matplotlib.pyplot as plt
-import tempfile                                 #temporary for PC only
-from telegram_client import send_telegram_photo
+from datetime import datetime, timezone
 
-from telegram_client import send_telegram_message
+from config import SYMBOLS, ADMIN_CHAT_ID, ALIVE_INTERVAL, RISK_USDT
+from alerts.symbols_manager import load_symbols as reload_symbols
+from database.db_manager import get_conn, ensure_tables, sync_klines
+from alerts.checker import check_alerts
+from telegram.client import send_telegram_message
+from telegram.menu_handler import handle_text, handle_callback, show_main_menu
+from charts.menu_chart import build_menu_chart
+from utils.binance_api import fetch_last_bars
+from charts.level_detector import detect_support_resistance, format_detected_level_info
+from alerts.alert_types import calculate_range_pct
 
 # ==============================
-# CONFIG
+# TELEGRAM UPDATES
 # ==============================
-DB_PATH = "database.db"
-LEVELS_FILE = "levels.json"
-BINANCE_KLINES_URL = "https://fapi.binance.com/fapi/v1/klines"
+LAST_UPDATE_ID = 0
 
-SHORT_TIME = 2
-MIDDLE_TIME = 20
-LONG_TIME = 55
+def get_telegram_updates():
+    """Отримує оновлення від Telegram"""
+    global LAST_UPDATE_ID
 
-LEVEL_LOOKBACK_MIN = 90        # 1.5 години
-LEVEL_RANGE_PCT = 0.003        # ±0.3%
+    from config import TG_API
 
-#Dir for images
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CHART_DIR = os.path.join(BASE_DIR, "charts")
-os.makedirs(CHART_DIR, exist_ok=True)
+    try:
+        resp = requests.get(
+            f"{TG_API}/getUpdates",
+            params={
+                "timeout": 5,
+                "offset": LAST_UPDATE_ID + 1,
+                "allowed_updates": ["message", "callback_query"]
+            },
+            timeout=10
+        ).json()
+    except requests.exceptions.RequestException as e:
+        logger.warning(f"Telegram getUpdates timeout: {e}")
+        return []
 
-SYMBOLS = {
-    "BTCUSDT": {
-        "short_threshold": 0.25,
-        "middle_threshold": 0.5,
-        "long_threshold": 1.0,
-        "risk_usdt": 1.0,
-        "sl_small_pct": 0.001,
-        "sl_big_pct": 0.002
-    },
-    "ETHUSDT": {
-        "short_threshold": 0.55,
-        "middle_threshold": 1.25,
-        "long_threshold": 2.5,
-        "risk_usdt": 1.0,
-        "sl_small_pct": 0.0025,
-        "sl_big_pct": 0.005
-    },
-    "SOLUSDT": {
-        "short_threshold": 0.6,
-        "middle_threshold": 1.5,
-        "long_threshold": 3.0,
-        "risk_usdt": 1.0,
-        "sl_small_pct": 0.003,
-        "sl_big_pct": 0.006
-    },
-    "XAUUSDT": {
-        "short_threshold": 0.14,
-        "middle_threshold": 0.28,
-        "long_threshold": 0.55,
-        "risk_usdt": 1.0,
-        "sl_small_pct": 0.0007,
-        "sl_big_pct": 0.0014
-    },
-    "XAGUSDT": {
-        "short_threshold": 0.45,
-        "middle_threshold": 0.9,
-        "long_threshold": 1.75,
-        "risk_usdt": 1.0,
-        "sl_small_pct": 0.0033,
-        "sl_big_pct": 0.0066
-    }
-}
+    updates = resp.get("result", [])
+    if updates:
+        LAST_UPDATE_ID = updates[-1]["update_id"]
 
-CHECKS = [
-    ("short", SHORT_TIME),
-    ("middle", MIDDLE_TIME),
-    ("long", LONG_TIME),
-]
+    return updates
+
+
+def handle_update(update, conn):
+    """Обробка одного оновлення від Telegram"""
+    logger.info(f"UPDATE RECEIVED: {update}")
+
+    # ===== CALLBACK QUERY =====
+    if "callback_query" in update:
+        callback = update["callback_query"]
+        chat_id = callback["message"]["chat"]["id"]
+        data = callback["data"]
+
+        result = handle_callback(
+            chat_id,
+            data,
+            send_telegram_message
+        )
+
+        if not result or result.get("action") != "view_chart":
+            return
+
+        symbol = result["symbol"]
+        timeframe = result["timeframe"]
+
+        send_telegram_message(chat_id, "⏳ Будую графік...")
+
+        try:
+            df = fetch_last_bars(symbol, timeframe, 90)
+
+            detected_level = detect_support_resistance(df, tolerance_pct=0.0001)
+
+            current_price = df["open"].iloc[-1]
+
+            caption = f"📊 <b>{symbol}</b> | {timeframe}\n"
+            caption += f"💰 Price (last bar open): <b>{current_price:.4f}</b>"
+
+            # Конвертуємо таймфрейм у хвилини
+            tf_to_minutes = {
+                "1m": 1,
+                "5m": 5,
+                "15m": 15,
+                "1h": 60,
+                "4h": 240,
+                "1d": 1440
+            }
+
+            minutes_per_bar = tf_to_minutes.get(timeframe, 1)
+
+            bars_55m = min(55 // minutes_per_bar, len(df))
+            bars_20m = min(20 // minutes_per_bar, len(df))
+            bars_2m = min(2 // minutes_per_bar, len(df))
+
+            caption += f"\n\n📊 Price movement:"
+
+            if bars_55m > 0:
+                df_55 = df.tail(bars_55m)
+                long_pct = calculate_range_pct(df_55, current_price)
+                caption += f"\n   Long (~55m): <b>{long_pct:.2f}%</b>"
+
+            if bars_20m > 0:
+                df_20 = df.tail(bars_20m)
+                middle_pct = calculate_range_pct(df_20, current_price)
+                caption += f"\n   Middle (~20m): <b>{middle_pct:.2f}%</b>"
+
+            if bars_2m > 0:
+                df_2 = df.tail(bars_2m)
+                short_pct = calculate_range_pct(df_2, current_price)
+                caption += f"\n   Short (~2m): <b>{short_pct:.2f}%</b>"
+
+            # Розрахунок SL та позицій (використовуємо глобальний RISK_USDT)
+            # Розрахунок SL та позицій (використовуємо глобальний RISK_USDT)
+            cfg = SYMBOLS.get(symbol)
+            if cfg:
+                sl_small = current_price * cfg["sl_small_pct"]
+                sl_big = current_price * cfg["sl_big_pct"]
+
+                if sl_small > 0 and sl_big > 0:
+                    size_small_sl = RISK_USDT / sl_small
+                    size_big_sl = RISK_USDT / sl_big
+
+                    # Ціни входу для позицій
+                    price_big = current_price + sl_small       # велика позиція = маленький SL
+                    price_small = current_price + sl_big       # мала позиція = великий SL
+
+                    caption += f"\n\n💲  SL Small: <b>${sl_small:.4f}</b>"
+                    caption += f"\n🌎🚀 Position (big): <b>{size_small_sl:.4f} {symbol[:-4]}</b> @ {price_big:.4f}"
+                    caption += f"\n\n💲💸 SL Big: <b>${sl_big:.4f}</b>"
+                    caption += f"\n،🚀 Position (small): <b>{size_big_sl:.4f} {symbol[:-4]}</b> @ {price_small:.4f}"
+            # Виявлений рівень
+            if detected_level:
+                caption += format_detected_level_info(detected_level, current_price)
+
+            chart_path = build_menu_chart(
+                df=df,
+                symbol=symbol,
+                timeframe=timeframe,
+                detected_level=detected_level
+            )
+
+            from telegram.client import send_menu_chart
+            send_menu_chart(
+                chat_id=chat_id,
+                chart_path=chart_path,
+                caption=caption
+            )
+
+            show_main_menu(chat_id, send_telegram_message)
+
+        except Exception:
+            logger.exception("Menu chart error")
+            send_telegram_message(
+                chat_id,
+                "❌ Не вдалося побудувати графік"
+            )
+            show_main_menu(chat_id, send_telegram_message)
+
+        return
+
+    # ===== TEXT MESSAGE =====
+    if "message" not in update:
+        return
+
+    message = update["message"]
+    chat_id = message["chat"]["id"]
+    text = message.get("text", "").strip()
+
+    if not text:
+        return
+
+    if text in ("/start", "/menu"):
+        show_main_menu(chat_id, send_telegram_message)
+        return
+
+    handle_text(
+        chat_id,
+        text,
+        send_telegram_message
+    )
+
 
 # ==============================
 # ALIVE HEARTBEAT
 # ==============================
 LAST_ALIVE_PING = None
-ALIVE_INTERVAL = timedelta(hours=12)
-
-# ==============================
-# LEVELS AUTO-RELOAD
-# ==============================
-_LEVELS_CACHE = {}
-_LEVELS_MTIME = None
-# ==============================
-# LEVELS
-# ==============================
-
-def load_levels():
-    global _LEVELS_CACHE, _LEVELS_MTIME
-
-    if not os.path.exists(LEVELS_FILE):
-        return {}
-
-    mtime = os.path.getmtime(LEVELS_FILE)
-    if _LEVELS_MTIME != mtime:
-        with open(LEVELS_FILE, "r") as f:
-            _LEVELS_CACHE = json.load(f)
-        _LEVELS_MTIME = mtime
-        logger.info("Levels reloaded")
-
-    return _LEVELS_CACHE
-
-def filter_levels_for_range(levels, ref_price):
-    low = ref_price * (1 - LEVEL_RANGE_PCT)
-    high = ref_price * (1 + LEVEL_RANGE_PCT)
-    return [lvl for lvl in levels if low <= lvl <= high]
-
-def find_nearest_level(levels, price):
-    if not levels:
-        return None
-    return min(levels, key=lambda x: abs(x - price))
 
 
-# ==============================
-# DB
-# ==============================
-def get_conn():
-    return sqlite3.connect(DB_PATH)
-
-
-def table(symbol):
-    return symbol.lower()
-
-
-def ensure_tables(conn, symbol):
-    conn.execute(f"""
-        CREATE TABLE IF NOT EXISTS {table(symbol)} (
-            open_time_ms INTEGER PRIMARY KEY,
-            open_time_utc TEXT,
-            open REAL,
-            high REAL,
-            low REAL,
-            close REAL,
-            volume REAL
-        )
-    """)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS alert_state (
-            symbol TEXT,
-            alert_type TEXT,
-            last_trigger_ms INTEGER,
-            PRIMARY KEY (symbol, alert_type)
-        )
-    """)
-    conn.commit()
-
-
-def last_open_ms(conn, symbol):
-    cur = conn.execute(f"SELECT MAX(open_time_ms) FROM {table(symbol)}")
-    r = cur.fetchone()
-    return r[0] if r and r[0] else None
-
-
-# ==============================
-# BINANCE
-# ==============================
-def fetch_klines(symbol, start_ms, end_ms):
-    r = requests.get(
-        BINANCE_KLINES_URL,
-        params={
-            "symbol": symbol,
-            "interval": "1m",
-            "startTime": start_ms,
-            "endTime": end_ms,
-            "limit": 1500
-        },
-        timeout=10
-    )
-    r.raise_for_status()
-    return r.json()
-
-
-# ==============================
-# SYNC
-# ==============================
-def sync_klines(conn, symbol):
-    now_ms = int(time.time() * 1000)
-    last_ms = last_open_ms(conn, symbol)
-
-    start_ms = last_ms + 60_000 if last_ms else now_ms - 3 * 60 * 60 * 1000
-    if start_ms >= now_ms:
-        return 0
-
-    try:
-        klines = fetch_klines(symbol, start_ms, now_ms)
-    except requests.exceptions.RequestException as e:
-        logger.warning(f"{symbol} Binance unreachable: {e}")
-        return 0
-
-    rows = 0
-    for k in klines:
-        ts = k[0]
-        utc = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-        conn.execute(
-            f"INSERT OR IGNORE INTO {table(symbol)} VALUES (?,?,?,?,?,?,?)",
-            (ts, utc, float(k[1]), float(k[2]), float(k[3]), float(k[4]), float(k[5]))
-        )
-        rows += 1
-
-    conn.commit()
-    return rows
-
-
-# ==============================
-# ALERTS
-# ==============================
-def load_last_bars(conn, symbol, limit=90):
-    cur = conn.execute(
-        f"""
-        SELECT open_time_utc, open, high, low, close, volume
-        FROM {table(symbol)}
-        ORDER BY open_time_ms DESC
-        LIMIT ?
-        """,
-        (limit,)
-    )
-
-    rows = cur.fetchall()
-    if len(rows) < limit:
-        return None
-
-    df = pd.DataFrame(
-        rows[::-1],
-        columns=["time", "open", "high", "low", "close", "volume"]
-    )
-    return df
-
-def build_chart(df, symbol, levels=None):
-    fig = plt.figure(figsize=(10, 6))
-    levels = levels or []
-
-    gs = fig.add_gridspec(2, 1, height_ratios=[3, 1], hspace=0)
-    ax_price = fig.add_subplot(gs[0])
-    ax_vol = fig.add_subplot(gs[1], sharex=ax_price)
-
-    # Свічки
-    for i, row in df.iterrows():
-        color = "green" if row["close"] >= row["open"] else "red"
-        ax_price.plot([i, i], [row["low"], row["high"]], color=color)
-        ax_price.bar(
-            i,
-            abs(row["close"] - row["open"]),
-            bottom=min(row["open"], row["close"]),
-            color=color,
-            width=0.6
-        )
-
-    for lvl in levels:
-        ax_price.axhline(lvl, color="blue", linestyle="--", linewidth=1)
-
-    ax_price.set_ylabel("Price")
-    ax_price.grid(True)
-    ax_price.set_xticks([])
-
-    # Фейковий обʼєм (пропорційний тілу свічки)
-    ax_vol.bar(range(len(df)), df["volume"], color="gray")
-    ax_vol.set_ylabel("volume")
-
-    file_path = os.path.join(CHART_DIR, f"{symbol}_chart.png")
-
-    plt.savefig(file_path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
-
-    return file_path
-
-def get_range_data(conn, symbol, minutes):
-    since = int(time.time() * 1000) - minutes * 60 * 1000
-    cur = conn.execute(
-        f"""
-        SELECT 
-            MIN(low),
-            MAX(high),
-            COUNT(*),
-            FIRST_VALUE(open) OVER (ORDER BY open_time_ms),
-            LAST_VALUE(close) OVER (
-                ORDER BY open_time_ms
-                ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
-            )
-        FROM {table(symbol)}
-        WHERE open_time_ms >= ?
-        """,
-        (since,)
-    )
-    return cur.fetchone()
-
-
-def can_alert(conn, symbol, alert_type, cooldown_min):
-    now = int(time.time() * 1000)
-    cooldown_ms = cooldown_min * 60 * 1000
-
-    cur = conn.execute(
-        "SELECT last_trigger_ms FROM alert_state WHERE symbol=? AND alert_type=?",
-        (symbol, alert_type)
-    )
-    r = cur.fetchone()
-    if r and now - r[0] < cooldown_ms:
-        return False
-
-    conn.execute("""
-        INSERT INTO alert_state VALUES (?,?,?)
-        ON CONFLICT(symbol,alert_type)
-        DO UPDATE SET last_trigger_ms=excluded.last_trigger_ms
-    """, (symbol, alert_type, now))
-    conn.commit()
-    return True
-
-
-def check_alerts(conn, symbol):
-    cfg = SYMBOLS[symbol]
-
-    levels_map = load_levels()
-    symbol_levels = levels_map.get(symbol, [])
-
-    cur = conn.execute(
-        f"SELECT close FROM {table(symbol)} ORDER BY open_time_ms DESC LIMIT 1"
-    )
-    row = cur.fetchone()
-    if not row:
-        return
-
-    price = row[0]
-
-    for t, minutes in CHECKS:
-        low, high, cnt, first_open, last_close = get_range_data(conn, symbol, minutes)
-        if not low or cnt < minutes:
-            continue
-
-        pct = (high - low) / low * 100
-        if pct < cfg[f"{t}_threshold"]:
-            continue
-
-        direction = "UP" if last_close > first_open else "DOWN"
-        alert_type = f"{t}_{direction}"
-
-        if not can_alert(conn, symbol, alert_type, minutes):
-            continue
-
-        df = load_last_bars(conn, symbol, LEVEL_LOOKBACK_MIN)
-        if df is None:
-            continue
-        ref_price = df["close"].iloc[0]
-
-        valid_levels = filter_levels_for_range(symbol_levels, ref_price)
-        nearest = find_nearest_level(valid_levels, price)
-
-        min_price = df.low.min()
-        max_price = df.high.max()
-
-        sl_big = price * cfg["sl_big_pct"]
-        sl_small = price * cfg["sl_small_pct"]
-
-        if sl_big <= 0 or sl_small <= 0:
-            logger.warning(f"{symbol}: invalid SL values")
-            continue
-
-
-        arrow = "📈" if direction == "UP" else "📉"
-        side = "SHORT" if direction == "UP" else "LONG"
-        arroww = "⏬" if direction == "UP" else "⏫"
-        arrowww = "🔽" if direction == "UP" else "🔼"
-
-        msg = (
-            f"{arrow} <b>{symbol} MOVES {direction}</b>\n"
-            f"🕒 {datetime.now().strftime('%H:%M:%S')}\n\n"
-            f"<u>{minutes}m range</u>  △={pct:.2f}%\n"
-            f"Price: {price:.2f}\n\n"
-            f"MIN_PRICE: {min_price:.2f}\n"
-            f"MAX_PRICE: {max_price:.2f}\n"
-            f"<b>{side} setup</b>\n"
-            f"{arroww} SL SMALL: {sl_small:.4f}\n"
-            f"Size: <b>{cfg['risk_usdt']/sl_small:.4f}</b>\n\n"
-            f"{arrowww} SL BIG: {sl_big:.4f}\n"
-            f"Size: <b>{cfg['risk_usdt']/sl_big:.4f}</b>"
-        )
-        if nearest:
-            diff_abs = nearest - price
-            diff_pct = diff_abs / price * 100
-            msg += (
-                f"\n\n 🔵 Nearest level: {nearest:.2f}\n"
-                f"Δ: {diff_abs:.2f} ({diff_pct:.2f}%)"
-            )
-
-        df = load_last_bars(conn, symbol, 90)
-
-        if df is not None:
-            chart_path = build_chart(df, symbol, valid_levels)
-            send_telegram_photo(chart_path, msg)
-        else:
-            send_telegram_message(msg)
-
-        logger.warning(msg)
-
-# ==============================
-# MAIN
-# ==============================
-def send_alive_ping():
+def send_alive_ping(chat_id):
+    """Надсилає heartbeat повідомлення"""
     global LAST_ALIVE_PING
 
     now = datetime.now(timezone.utc)
@@ -428,38 +219,68 @@ def send_alive_ping():
         f"📡 Monitoring: {', '.join(SYMBOLS.keys())}"
     )
 
-    send_telegram_message(msg)
+    send_telegram_message(chat_id, msg)
     logger.info("Alive ping sent")
 
     LAST_ALIVE_PING = now
 
-def sleep_to_next_minute():
-    time.sleep(60 - time.time() % 60)
 
-
+# ==============================
+# MAIN
+# ==============================
 def main():
+    """Головний цикл бота"""
     logger.info("Bot started")
 
     conn = get_conn()
     for s in SYMBOLS:
         ensure_tables(conn, s)
 
+    # Динамічне оновлення SYMBOLS при зміні файлу
+    def refresh_symbols():
+        """Перезавантажує список токенів"""
+        import config
+        config.SYMBOLS = reload_symbols()
+
+    # Обробка накопичених повідомлень
+    updates = get_telegram_updates()
+    for update in updates:
+        handle_update(update, conn)
+
+    last_alert_check = 0
+
     while True:
         try:
-            send_alive_ping()
-            
-            for s in SYMBOLS:
-                added = sync_klines(conn, s)
-                if added:
-                    logger.info(f"{s}: synced {added} rows")
-                check_alerts(conn, s)
-        
+            # 1. ЗАВЖДИ ОБРОБЛЯЄМО TELEGRAM ОНОВЛЕННЯ
+            updates = get_telegram_updates()
+            for update in updates:
+                handle_update(update, conn)
+
+            # 2. ПЕРЕВІРЯЄМО АЛЕРТИ ТІЛЬКИ РАЗ НА ХВИЛИНУ
+            current_time = time.time()
+
+            if current_time - last_alert_check >= 60:
+                refresh_symbols()
+
+                from alerts.levels_manager import load_levels
+                levels_map = load_levels()
+
+                all_symbols = set(SYMBOLS.keys()) | set(levels_map.keys())
+
+                for s in all_symbols:
+                    ensure_tables(conn, s)
+
+                    added = sync_klines(conn, s)
+                    if added:
+                        logger.info(f"{s}: synced {added} rows")
+
+                    check_alerts(conn, s, ADMIN_CHAT_ID)
+
+                last_alert_check = current_time
+
         except Exception:
             logger.exception("Main loop error")
-
-        sleep_to_next_minute()
 
 
 if __name__ == "__main__":
     main()
-
