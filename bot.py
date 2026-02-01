@@ -128,7 +128,6 @@ def handle_update(update, conn):
                 caption += f"\n   Short (~2m): <b>{short_pct:.2f}%</b>"
 
             # Розрахунок SL та позицій (використовуємо глобальний RISK_USDT)
-            # Розрахунок SL та позицій (використовуємо глобальний RISK_USDT)
             cfg = SYMBOLS.get(symbol)
             if cfg:
                 sl_small = current_price * cfg["sl_small_pct"]
@@ -145,7 +144,7 @@ def handle_update(update, conn):
                     caption += f"\n\n💲  SL Small: <b>${sl_small:.4f}</b>"
                     caption += f"\n🌎🚀 Position (big): <b>{size_small_sl:.4f} {symbol[:-4]}</b> @ {price_big:.4f}"
                     caption += f"\n\n💲💸 SL Big: <b>${sl_big:.4f}</b>"
-                    caption += f"\n،🚀 Position (small): <b>{size_big_sl:.4f} {symbol[:-4]}</b> @ {price_small:.4f}"
+                    caption += f"\n🚀 Position (small): <b>{size_big_sl:.4f} {symbol[:-4]}</b> @ {price_small:.4f}"
             # Виявлений рівень
             if detected_level:
                 caption += format_detected_level_info(detected_level, current_price)

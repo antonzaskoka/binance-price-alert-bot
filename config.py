@@ -38,7 +38,7 @@ MIDDLE_TIME = 20
 LONG_TIME = 55
 
 LEVEL_LOOKBACK_MIN = 90        # 1.5 години
-LEVEL_RANGE_PCT = 0.001        # ±0.1%
+LEVEL_RANGE_PCT = 0.0001        # ±0.01%
 RISK_USDT = 1.0 
 
 # ==============================

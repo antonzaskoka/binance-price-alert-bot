@@ -82,14 +82,14 @@ def format_threshold_alert(alert_data, df):
         f"🚨 <b>{symbol}</b>\n"
         f"🕒 {datetime.now().strftime('%H:%M:%S')}\n\n"
         f"📊 {alert_label} Alert ({minutes}m): <b>{pct:.2f}%</b>\n\n"
-        f"💰 Price (last bar open): <b>{price:.4f}</b>\n"
+        f"💰 Price (last bar open): <b>${price:.4f}</b>\n"
         f"📉 Min price ({minutes}m): {min_price:.4f}\n"
         f"📈 Max price ({minutes}m): {max_price:.4f}\n\n"
-        f"📐 ATR (90m): <b>{atr:.4f}</b>\n\n"
-        f"🔽 SL Small: <b>${sl_small:.4f}</b>\n"
-        f"🔼 Position (big): <b>{size_small_sl:.4f} {symbol[:-4]}</b>\n\n"
-        f"🔻 SL Big: <b>${sl_big:.4f}</b>\n"
-        f"🔺 Position (small): <b>{size_big_sl:.4f} {symbol[:-4]}</b>"
+        f"📐 ATR (90m): <b>${atr:.4f}</b>\n\n"
+        f"💲 SL Small: <b>${sl_small:.4f}</b>\n"
+        f"🌎🚀 Position (big): <b>{size_small_sl:.4f} {symbol[:-4]}</b>\n\n"
+        f"💲💸 SL Big: <b>${sl_big:.4f}</b>\n"
+        f"🚀 Position (small): <b>{size_big_sl:.4f} {symbol[:-4]}</b>"
     )
 
     if nearest:
@@ -97,7 +97,7 @@ def format_threshold_alert(alert_data, df):
         diff_pct = (diff_abs / price) * 100
         msg += (
             f"\n\n🔵 Nearest level: <b>{nearest:.4f}</b>\n"
-            f"   Distance: <b>{abs(diff_pct):.2f}%</b> (${abs(diff_abs):.4f})"
+            f"   Distance: <b>{abs(diff_pct):.2f}%</b> (${diff_abs:.4f})"
         )
 
     return msg, valid_levels

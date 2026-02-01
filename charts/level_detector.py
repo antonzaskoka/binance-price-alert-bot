@@ -86,7 +86,7 @@ def format_detected_level_info(detected_level, current_price):
     direction = "вище" if diff_abs > 0 else "нижче"
     
     text = (
-        f"\n\n🟢 Виявлено рівень: <b>{level:.4f}</b>\n"
+        f"\n\n🟢 Виявлено рівень: <b>${level:.4f}</b>\n"
         f"   Торкань: {touches}\n"
         f"   Відстань: <b>{abs(diff_pct):.2f}%</b> ({direction}, ${abs(diff_abs):.4f})"
     )
