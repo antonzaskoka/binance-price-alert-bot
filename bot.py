@@ -81,6 +81,7 @@ def handle_update(update, conn):
 
         symbol = result["symbol"]
         timeframe = result["timeframe"]
+        custom_price = result.get("custom_price")
 
         send_telegram_message(chat_id, "⏳ Будую графік...")
 
@@ -153,7 +154,8 @@ def handle_update(update, conn):
                 df=df,
                 symbol=symbol,
                 timeframe=timeframe,
-                detected_level=detected_level
+                detected_level=detected_level,
+                custom_price=custom_price
             )
 
             from telegram.client import send_menu_chart
@@ -262,6 +264,10 @@ def main():
                 refresh_symbols()
 
                 from alerts.levels_manager import load_levels
+                import alerts.levels_manager as lm
+                lm._LEVELS_CACHE = {}
+                lm._LEVELS_MTIME = None
+                
                 levels_map = load_levels()
 
                 all_symbols = set(SYMBOLS.keys()) | set(levels_map.keys())

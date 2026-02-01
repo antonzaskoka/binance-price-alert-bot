@@ -5,6 +5,7 @@ from collections import defaultdict
 import logging
 import json
 import os
+import re
 
 from telegram.keyboards import (
     main_menu, back_menu, timeframe_menu, levels_menu,
@@ -66,9 +67,20 @@ def handle_text(chat_id, text, send):
             show_main_menu(chat_id, send)
             return
 
-        symbol = normalize_symbol(text)
+        # Парсинг: "btc" або "btc, 81050"
+        custom_price = None
+        match = re.match(r'^([a-zA-Z0-9]+)\s*,\s*([0-9.]+)$', text.strip())
+        
+        if match:
+            symbol_text = match.group(1)
+            custom_price = float(match.group(2))
+        else:
+            symbol_text = text.strip()
+
+        symbol = normalize_symbol(symbol_text)
 
         user_state[chat_id]["symbol"] = symbol
+        user_state[chat_id]["custom_price"] = custom_price
         user_state[chat_id]["step"] = "select_tf"
 
         send(
@@ -229,6 +241,10 @@ def handle_text(chat_id, text, send):
 
         if symbol in data and price in data[symbol]:
             data[symbol].remove(price)
+
+            # ✅ Видалити токен якщо немає рівнів
+            if not data[symbol]:
+                del data[symbol]
 
             with open(LEVELS_FILE, "w") as f:
                 json.dump(data, f, indent=2)
@@ -483,6 +499,7 @@ def handle_callback(chat_id, data, send_msg):
 
         state = user_state.get(chat_id)
         symbol = state.get("symbol") if state else None
+        custom_price = state.get("custom_price") if state else None
 
         if not symbol:
             send_msg(chat_id, "❌ Символ не вибрано")

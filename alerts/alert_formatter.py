@@ -62,8 +62,15 @@ def format_threshold_alert(alert_data, df):
     size_small_sl = RISK_USDT / sl_small
     size_big_sl = RISK_USDT / sl_big
 
-    # ATR
+    # ATR з кольоровим емоджі
     atr = calculate_atr(df)
+    
+    if atr < sl_small:
+        atr_emoji = "🟢"  # зелений
+    elif atr < sl_big:
+        atr_emoji = "🟡"  # жовтий
+    else:
+        atr_emoji = "🔴"  # червоний
 
     # Шукаємо найближчий рівень
     valid_levels = filter_levels_for_range(levels, price, 0.05)  # ±5%
@@ -85,7 +92,7 @@ def format_threshold_alert(alert_data, df):
         f"💰 Price (last bar open): <b>${price:.4f}</b>\n"
         f"📉 Min price ({minutes}m): {min_price:.4f}\n"
         f"📈 Max price ({minutes}m): {max_price:.4f}\n\n"
-        f"📐 ATR (90m): <b>${atr:.4f}</b>\n\n"
+         f"📐 ATR (90m): {atr_emoji} <b>{atr:.4f}</b>\n\n"
         f"💲 SL Small: <b>${sl_small:.4f}</b>\n"
         f"🌎🚀 Position (big): <b>{size_small_sl:.4f} {symbol[:-4]}</b>\n\n"
         f"💲💸 SL Big: <b>${sl_big:.4f}</b>\n"
@@ -155,11 +162,11 @@ def format_level_touch_alert(alert_data, df):
         f"   Long (55m): <b>{long_pct:.2f}%</b>\n"
         f"   Middle (20m): <b>{middle_pct:.2f}%</b>\n"
         f"   Short (2m): <b>{short_pct:.2f}%</b>\n\n"
-        f"📐 ATR (90m): <b>${atr:.4f}</b>\n\n"
-        f"💲 SL Small: <b>${sl_small:.4f}</b>\n"
+         f"📐 ATR (90m): {atr_emoji} <b>{atr:.4f}</b>\n\n"
+        f"💲   SL Small: <b>${sl_small:.4f}</b>\n"
         f"🌎🚀 Position (big): <b>{size_small_sl:.4f} {symbol[:-4]}</b>\n\n"
         f"💲💸 SL Big: <b>${sl_big:.4f}</b>\n"
-        f"🚀 Position (small): <b>{size_big_sl:.4f} {symbol[:-4]}</b>"
+        f"🚀   Position (small): <b>{size_big_sl:.4f} {symbol[:-4]}</b>"
     )
 
     return msg, valid_levels

@@ -8,8 +8,7 @@
 logs/
 
 # Charts (generated)
-charts/*.png
-charts/*.jpg
+charts/
 
 # Python
 __pycache__/

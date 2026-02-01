@@ -101,3 +101,19 @@ def dynamic_levels_keyboard(levels_list):
         "keyboard": keyboard,
         "resize_keyboard": True
     }
+
+def dynamic_levels_keyboard_two_columns(levels_list):
+    """
+    Динамічна клавіатура з рівнями в 2 стовпчики
+    """
+    keyboard = []
+    for i in range(0, len(levels_list), 2):
+        row = [str(levels_list[i])]
+        if i + 1 < len(levels_list):
+            row.append(str(levels_list[i + 1]))
+        keyboard.append(row)
+    keyboard.append(["⬅️ Назад"])
+    return {
+        "keyboard": keyboard,
+        "resize_keyboard": True
+    }
