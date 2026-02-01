@@ -8,7 +8,7 @@ from datetime import datetime
 from config import CHART_DIR
 
 
-def build_menu_chart(df, symbol, timeframe, detected_level=None):
+def build_menu_chart(df, symbol, timeframe, detected_level=None, custom_price=None):
     """
     Будує графік для меню зі свічками, об'ємом та виявленим рівнем
     
@@ -45,6 +45,17 @@ def build_menu_chart(df, symbol, timeframe, detected_level=None):
             linestyle="--",
             linewidth=2,
             label=f"Level: {level_price:.4f}"
+        )
+        ax_price.legend(loc='upper left', fontsize=8)
+
+    # ✅ Custom price (пурпурова лінія)
+    if custom_price:
+        ax_price.axhline(
+            custom_price,
+            color="purple",
+            linestyle="-",
+            linewidth=2,
+            label=f"Custom: {custom_price:.4f}"
         )
         ax_price.legend(loc='upper left', fontsize=8)
 
