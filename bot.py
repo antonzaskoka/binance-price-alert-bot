@@ -83,6 +83,8 @@ def handle_update(update, conn):
         timeframe = result["timeframe"]
         custom_price = result.get("custom_price")
 
+        logger.info(f"DEBUG: symbol={symbol}, timeframe={timeframe}, custom_price={custom_price}")
+
         send_telegram_message(chat_id, "⏳ Будую графік...")
 
         try:
@@ -267,7 +269,7 @@ def main():
                 import alerts.levels_manager as lm
                 lm._LEVELS_CACHE = {}
                 lm._LEVELS_MTIME = None
-                
+
                 levels_map = load_levels()
 
                 all_symbols = set(SYMBOLS.keys()) | set(levels_map.keys())

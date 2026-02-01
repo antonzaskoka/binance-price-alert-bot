@@ -38,9 +38,17 @@ def handle_text(chat_id, text, send):
 
     # ---- MAIN MENU ----
     if step == "main":
+        if step == "main":
         if text == "📊 Подивитися котирування":
             user_state[chat_id]["step"] = "enter_symbol"
-            send(chat_id, "✍️ Введи назву токена (наприклад BTC)", reply_markup=back_menu())
+            send(
+                chat_id,
+                "✍️ Введи назву токена або токен + ціну\n\n"
+                "Приклади:\n"
+                "• <code>btc</code> — графік BTCUSDT\n"
+                "• <code>btc, 81050</code> — графік + лінія на 81050",
+                reply_markup=back_menu()
+            )
             return
 
         if text == "✏️ Виправити рівні":
@@ -576,7 +584,8 @@ def handle_callback(chat_id, data, send_msg):
         return {
             "action": "view_chart",
             "symbol": symbol,
-            "timeframe": timeframe
+            "timeframe": timeframe,,
+            "custom_price": custom_price
         }
 
     if data == "back":
