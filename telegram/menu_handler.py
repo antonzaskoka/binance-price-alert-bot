@@ -82,13 +82,24 @@ def handle_text(chat_id, text, send):
             show_main_menu(chat_id, send)
             return
 
-        # Парсинг: "btc" або "btc, 81050"
+        # Парсинг: "btc" або "btc, 81050" або "btc 81050"
         custom_price = None
-        match = re.match(r'^([a-zA-Z0-9]+)\s*,\s*([0-9.]+)$', text.strip())
         
-        if match:
-            symbol_text = match.group(1)
-            custom_price = float(match.group(2))
+        if ',' in text:
+            parts = text.split(',')
+            symbol_text = parts[0].strip()
+            try:
+                custom_price = float(parts[1].strip())
+            except:
+                pass
+        elif ' ' in text:
+            parts = text.split()
+            symbol_text = parts[0].strip()
+            if len(parts) > 1:
+                try:
+                    custom_price = float(parts[1].strip())
+                except:
+                    pass
         else:
             symbol_text = text.strip()
 
@@ -109,9 +120,15 @@ def handle_text(chat_id, text, send):
     if step == "select_tf":
         if text == "⬅️ Назад":
             user_state[chat_id]["step"] = "enter_symbol"
-            send(chat_id, "✍️ Введи назву токена (наприклад BTC)", reply_markup=back_menu())
+            send(
+                chat_id,
+                "✍️ Введи назву токена або токен + ціну\n\n"
+                "Приклади:\n"
+                "• <code>btc</code>\n"
+                "• <code>btc, 81050</code>",
+                reply_markup=back_menu()
+            )
             return
-
     # ---- LEVELS MENU ----
     if step == "levels_menu":
         if text == "⬅️ Назад":
@@ -564,7 +581,12 @@ def handle_callback(chat_id, data, send_msg):
 
     if data == "back":
         user_state[chat_id] = {"step": "enter_symbol"}
-        send_msg(chat_id, "✍️ Введи назву токена (наприклад BTC)", reply_markup=back_menu())
+        send_msg(
+            chat_id,
+            "✍️ Введи назву токена або токен + ціну\n\n"
+            "Приклади:\n"
+            "• <code>btc</code>\n"
+            "• <code>btc, 81050</code>",
+            reply_markup=back_menu()
+        )
         return None
-
-    return None
