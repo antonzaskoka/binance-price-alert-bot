@@ -38,7 +38,6 @@ def handle_text(chat_id, text, send):
 
     # ---- MAIN MENU ----
     if step == "main":
-        if step == "main":
         if text == "📊 Подивитися котирування":
             user_state[chat_id]["step"] = "enter_symbol"
             send(
