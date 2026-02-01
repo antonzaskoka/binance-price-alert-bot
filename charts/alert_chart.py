@@ -38,9 +38,25 @@ def build_alert_chart(df, symbol, levels=None):
     
     ax_price.set_ylim(y_min, y_max)
 
-    # Рівні
-    for lvl in levels:
+    # ✅ Рівні (всі що в діапазоні графіка)
+    from alerts.levels_manager import load_levels
+    levels_map = load_levels()
+    all_symbol_levels = levels_map.get(symbol, [])
+    
+    visible_levels = [lvl for lvl in all_symbol_levels if y_min <= lvl <= y_max]
+    
+    for lvl in visible_levels:
         ax_price.axhline(lvl, color="blue", linestyle="--", linewidth=1)
+    
+    # ✅ Підпис рівнів вгорі
+    if visible_levels:
+        levels_text = ", ".join([f"{lvl:.2f}" for lvl in visible_levels])
+        ax_price.text(
+            0.02, 0.98, f"Levels: {levels_text}",
+            transform=ax_price.transAxes,
+            fontsize=8, verticalalignment='top',
+            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+        )
 
     ax_price.set_ylabel("Price")
     ax_price.grid(True, alpha=0.3)

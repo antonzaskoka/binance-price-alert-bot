@@ -10,7 +10,7 @@ import re
 from telegram.keyboards import (
     main_menu, back_menu, timeframe_menu, levels_menu,
     symbols_menu, param_names_readable,
-    dynamic_symbols_keyboard, dynamic_levels_keyboard
+    dynamic_symbols_keyboard, dynamic_levels_keyboard_three_columns
 )
 from config import LEVELS_FILE
 from alerts.symbols_manager import (
@@ -59,6 +59,21 @@ def handle_text(chat_id, text, send):
                 "⚙️ <b>Параметри токенів</b>",
                 reply_markup=symbols_menu()
             )
+            return
+
+        if text == "👁️ Переглянути рівні":
+            levels_map = load_levels()
+            tokens_with_levels = sorted(levels_map.keys())
+
+            if tokens_with_levels:
+                user_state[chat_id] = {"step": "view_levels_symbol"}
+                send(
+                    chat_id,
+                    "📌 Обери токен для перегляду рівнів:",
+                    reply_markup=dynamic_symbols_keyboard(tokens_with_levels)
+                )
+            else:
+                send(chat_id, "⚠️ Немає токенів з рівнями", reply_markup=main_menu())
             return
 
     # ---- ENTER SYMBOL ----
@@ -208,7 +223,7 @@ def handle_text(chat_id, text, send):
                 send(
                     chat_id,
                     f"📋 Рівні для <b>{symbol}</b>:",
-                    reply_markup=dynamic_levels_keyboard(levels)
+                    reply_markup=dynamic_levels_keyboard_three_columns(levels)
                 )
             else:
                 send(chat_id, f"⚠️ Немає рівнів для {symbol}", reply_markup=levels_menu())
@@ -262,6 +277,42 @@ def handle_text(chat_id, text, send):
             )
 
         user_state[chat_id] = {"step": "levels_menu"}
+        return
+
+    # ---- VIEW LEVELS: SYMBOL ----
+    if step == "view_levels_symbol":
+        if text == "⬅️ Назад":
+            show_main_menu(chat_id, send)
+            return
+
+        symbol = normalize_symbol(text)
+
+        if os.path.exists(LEVELS_FILE):
+            with open(LEVELS_FILE, "r") as f:
+                data = json.load(f)
+            levels = data.get(symbol, [])
+
+            if levels:
+                send(
+                    chat_id,
+                    f"📋 <b>Рівні для {symbol}</b>:",
+                    reply_markup=dynamic_levels_keyboard_three_columns(levels)
+                )
+                user_state[chat_id] = {"step": "view_levels_show"}
+            else:
+                send(chat_id, f"⚠️ Немає рівнів для {symbol}", reply_markup=main_menu())
+                user_state[chat_id] = {"step": "main"}
+        else:
+            send(chat_id, "⚠️ Файл рівнів не знайдено", reply_markup=main_menu())
+            user_state[chat_id] = {"step": "main"}
+        return
+
+    # ---- VIEW LEVELS: SHOW (обробка кнопок рівнів або Назад) ----
+    if step == "view_levels_show":
+        if text == "⬅️ Назад":
+            show_main_menu(chat_id, send)
+            return
+        # Якщо натиснув на рівень - просто ігноруємо
         return
 
     # ---- SYMBOLS MENU ----

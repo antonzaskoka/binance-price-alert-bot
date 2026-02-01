@@ -6,9 +6,8 @@ Telegram клавіатури
 def main_menu():
     return {
         "keyboard": [
-            ["📊 Подивитися котирування"],
-            ["✏️ Виправити рівні"],
-            ["⚙️ Параметри токенів"]
+            ["📊 Подивитися котирування", "👁️ Переглянути рівні"],
+            ["✏️ Виправити рівні", "⚙️ Параметри токенів"]
         ],
         "resize_keyboard": True
     }
@@ -111,6 +110,24 @@ def dynamic_levels_keyboard_two_columns(levels_list):
         row = [str(levels_list[i])]
         if i + 1 < len(levels_list):
             row.append(str(levels_list[i + 1]))
+        keyboard.append(row)
+    keyboard.append(["⬅️ Назад"])
+    return {
+        "keyboard": keyboard,
+        "resize_keyboard": True
+    }
+
+def dynamic_levels_keyboard_three_columns(levels_list):
+    """
+    Динамічна клавіатура з рівнями в 3 стовпчики
+    """
+    keyboard = []
+    for i in range(0, len(levels_list), 3):
+        row = [str(levels_list[i])]
+        if i + 1 < len(levels_list):
+            row.append(str(levels_list[i + 1]))
+        if i + 2 < len(levels_list):
+            row.append(str(levels_list[i + 2]))
         keyboard.append(row)
     keyboard.append(["⬅️ Назад"])
     return {

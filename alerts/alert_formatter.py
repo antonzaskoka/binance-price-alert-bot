@@ -84,11 +84,13 @@ def format_threshold_alert(alert_data, df):
     else:
         alert_label = "LONG RANGE"
 
+    # ✅ Отримуємо threshold для підпису
+    threshold_value = cfg[f"{threshold_name.lower()}_threshold"]
     # Формуємо повідомлення
     msg = (
         f"🚨 <b>{symbol}</b>\n"
         f"🕒 {datetime.now().strftime('%H:%M:%S')}\n\n"
-        f"📊 {alert_label} Alert ({minutes}m): <b>{pct:.2f}%</b>\n\n"
+        f"📊 {alert_label} Alert ({minutes}m - {threshold_value}%): <b>{pct:.2f}%</b>\n\n"
         f"💰 Price (last bar open): <b>${price:.4f}</b>\n"
         f"📉 Min price ({minutes}m): {min_price:.4f}\n"
         f"📈 Max price ({minutes}m): {max_price:.4f}\n\n"
@@ -139,8 +141,15 @@ def format_level_touch_alert(alert_data, df):
     size_small_sl = RISK_USDT / sl_small
     size_big_sl = RISK_USDT / sl_big
 
-    # ATR
+    # ATR з кольоровим емоджі
     atr = calculate_atr(df)
+    
+    if atr < sl_small:
+        atr_emoji = "🟢"  # зелений
+    elif atr < sl_big:
+        atr_emoji = "🟡"  # жовтий
+    else:
+        atr_emoji = "🔴"  # червоний
 
     # Визначаємо дію
     if crossed_up:
