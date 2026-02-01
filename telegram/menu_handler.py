@@ -583,7 +583,7 @@ def handle_callback(chat_id, data, send_msg):
         return {
             "action": "view_chart",
             "symbol": symbol,
-            "timeframe": timeframe,,
+            "timeframe": timeframe,
             "custom_price": custom_price
         }
 
