@@ -155,11 +155,11 @@ def format_level_touch_alert(alert_data, df):
         f"   Long (55m): <b>{long_pct:.2f}%</b>\n"
         f"   Middle (20m): <b>{middle_pct:.2f}%</b>\n"
         f"   Short (2m): <b>{short_pct:.2f}%</b>\n\n"
-        f"📐 ATR (90m): <b>{atr:.4f}</b>\n\n"
-        f"🔽 SL Small: <b>${sl_small:.4f}</b>\n"
-        f"🔼 Position (big): <b>{size_small_sl:.4f} {symbol[:-4]}</b>\n\n"
-        f"🔻 SL Big: <b>${sl_big:.4f}</b>\n"
-        f"🔺 Position (small): <b>{size_big_sl:.4f} {symbol[:-4]}</b>"
+        f"📐 ATR (90m): <b>${atr:.4f}</b>\n\n"
+        f"💲 SL Small: <b>${sl_small:.4f}</b>\n"
+        f"🌎🚀 Position (big): <b>{size_small_sl:.4f} {symbol[:-4]}</b>\n\n"
+        f"💲💸 SL Big: <b>${sl_big:.4f}</b>\n"
+        f"🚀 Position (small): <b>{size_big_sl:.4f} {symbol[:-4]}</b>"
     )
 
     return msg, valid_levels

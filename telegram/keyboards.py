@@ -74,8 +74,15 @@ def dynamic_symbols_keyboard(symbols_list):
     """
     Динамічна клавіатура з кнопками для кожного токена.
     symbols_list — список назв токенів, наприклад ["BTCUSDT", "ETHUSDT"]
+    Кнопки відображаються у 2 стовпчики.
     """
-    keyboard = [[s] for s in sorted(symbols_list)]
+    #keyboard = [[s] for s in sorted(symbols_list)]
+    symbols = sorted(symbols_list)
+    keyboard = []
+
+    for i in range(0, len(symbols), 2):
+        row = symbols[i:i + 2]
+        keyboard.append(row)
     keyboard.append(["⬅️ Назад"])
     return {
         "keyboard": keyboard,
