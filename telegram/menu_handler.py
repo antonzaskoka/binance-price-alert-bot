@@ -77,7 +77,7 @@ def handle_text(chat_id, text, send):
                 send(
                     chat_id,
                     "📌 Обери токен для перегляду рівнів:",
-                    reply_markup=dynamic_symbols_keyboard(tokens_with_levels)
+                    reply_markup=dynamic_levels_keyboard_three_columns(tokens_with_levels)
                 )
             else:
                 send(chat_id, "⚠️ Немає токенів з рівнями", reply_markup=main_menu())
@@ -153,7 +153,7 @@ def handle_text(chat_id, text, send):
                 send(
                     chat_id,
                     "📌 Обери токен або введи новий:",
-                    reply_markup=dynamic_symbols_keyboard(all_tokens)
+                    reply_markup=dynamic_levels_keyboard_three_columns(all_tokens)
                 )
             else:
                 user_state[chat_id] = {"step": "level_add_symbol"}
@@ -170,7 +170,7 @@ def handle_text(chat_id, text, send):
                 send(
                     chat_id,
                     "📌 Обери токен:",
-                    reply_markup=dynamic_symbols_keyboard(tokens_with_levels)
+                    reply_markup=dynamic_levels_keyboard_three_columns(tokens_with_levels)
                 )
             else:
                 send(chat_id, "⚠️ Немає токенів з рівнями", reply_markup=levels_menu())
@@ -360,7 +360,7 @@ def handle_text(chat_id, text, send):
                 send(
                     chat_id,
                     "📌 Обери токен для редагування:",
-                    reply_markup=dynamic_symbols_keyboard(tokens)
+                    reply_markup=dynamic_levels_keyboard_three_columns(tokens)
                 )
             else:
                 send(chat_id, "⚠️ Немає токенів для редагування", reply_markup=symbols_menu())
@@ -376,7 +376,7 @@ def handle_text(chat_id, text, send):
                 send(
                     chat_id,
                     "📌 Обери токен для видалення:",
-                    reply_markup=dynamic_symbols_keyboard(tokens)
+                    reply_markup=dynamic_levels_keyboard_three_columns(tokens)
                 )
             else:
                 send(chat_id, "⚠️ Немає токенів для видалення", reply_markup=symbols_menu())
