@@ -110,7 +110,6 @@ def build_volume_alert_chart(df, symbol):
 
     file_path = os.path.join(CHART_DIR, f"{symbol}_volume_alert.png")
 
-    plt.tight_layout()
     plt.savefig(file_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
