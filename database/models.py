@@ -3,6 +3,7 @@ SQL-запити та моделі даних
 """
 import pandas as pd
 import logging
+from datetime import datetime
 
 from database.db_manager import table_name
 

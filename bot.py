@@ -21,7 +21,7 @@ from config import SYMBOLS, ADMIN_CHAT_ID, ALIVE_INTERVAL, RISK_USDT
 from alerts.symbols_manager import load_symbols as reload_symbols
 from database.db_manager import get_conn, ensure_tables, sync_klines
 from alerts.checker import check_alerts
-from telegram.client import send_telegram_message
+from telegram.client import send_telegram_message, send_alert_chart
 from telegram.menu_handler import handle_text, handle_callback, show_main_menu
 from charts.menu_chart import build_menu_chart
 from utils.binance_api import fetch_last_bars
@@ -277,7 +277,7 @@ def main():
 
     from database.db_manager import ensure_alerts_table
     ensure_alerts_table(conn)
-    
+
     for s in SYMBOLS:
         ensure_tables(conn, s)
 
@@ -333,7 +333,13 @@ def main():
             if current_time - last_volume_check >= VOLUME_CHECK_INTERVAL:
                 logger.info("Checking volume alerts...")
                 
+                # ✅ Виключаємо металеві ф'ючерси
+                excluded_symbols = ["XAUUSDT", "XAGUSDT"]
+                
                 for s in all_symbols:
+                    if s in excluded_symbols:
+                        continue
+                    
                     cfg = SYMBOLS.get(s)
                     if not cfg:
                         continue
@@ -359,6 +365,7 @@ def main():
                             
                             chart_path = build_volume_alert_chart(df, s)
                             
+                            from telegram.client import send_alert_chart
                             send_alert_chart(
                                 chat_id=ADMIN_CHAT_ID,
                                 symbol=s,
