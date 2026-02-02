@@ -28,17 +28,10 @@
     "sl_big_pct": 0.0014
   },
   "XAGUSDT": {
-    "short_threshold": 0.45,
-    "middle_threshold": 0.9,
-    "long_threshold": 1.75,
-    "sl_small_pct": 0.0033,
-    "sl_big_pct": 0.0066
-  },
-  "ARBUSDT": {
-    "short_threshold": 0.3,
-    "middle_threshold": 0.6,
-    "long_threshold": 1.2,
-    "sl_small_pct": 0.0025,
-    "sl_big_pct": 0.005
+    "short_threshold": 0.8,
+    "middle_threshold": 1.5,
+    "long_threshold": 3.2,
+    "sl_small_pct": 0.0066,
+    "sl_big_pct": 0.0132
   }
 }

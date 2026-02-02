@@ -83,8 +83,6 @@ def handle_update(update, conn):
         timeframe = result["timeframe"]
         custom_price = result.get("custom_price")
 
-        logger.info(f"DEBUG: symbol={symbol}, timeframe={timeframe}, custom_price={custom_price}")
-
         send_telegram_message(chat_id, "⏳ Будую графік...")
 
         try:
