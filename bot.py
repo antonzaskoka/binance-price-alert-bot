@@ -194,29 +194,37 @@ def handle_update(update, conn):
 
     if text == "/backup":
         import json
+        import os
         from config import LEVELS_FILE, SYMBOLS_FILE
         
-        msg = "📦 <b>Backup даних:</b>\n\n"
+        try:
+            msg = "📦 <b>Backup даних:</b>\n\n"
+            
+            # Levels
+            if os.path.exists(LEVELS_FILE):
+                with open(LEVELS_FILE, "r", encoding="utf-8") as f:
+                    levels_data = json.load(f)
+                msg += f"<b>levels.json</b> ({len(levels_data)} токенів):\n"
+                msg += f"<pre>{json.dumps(levels_data, indent=2, ensure_ascii=False)}</pre>\n\n"
+            else:
+                msg += "<b>levels.json</b>: файл не знайдено\n\n"
+            
+            # Symbols
+            if os.path.exists(SYMBOLS_FILE):
+                with open(SYMBOLS_FILE, "r", encoding="utf-8") as f:
+                    symbols_data = json.load(f)
+                msg += f"<b>symbols.json</b> ({len(symbols_data)} токенів):\n"
+                msg += f"<pre>{json.dumps(symbols_data, indent=2, ensure_ascii=False)}</pre>"
+            else:
+                msg += "<b>symbols.json</b>: файл не знайдено"
+            
+            send_telegram_message(chat_id, msg)
+            logger.info(f"/backup command executed for chat {chat_id}")
+            
+        except Exception as e:
+            logger.error(f"/backup error: {e}")
+            send_telegram_message(chat_id, f"❌ Помилка при отриманні backup: {e}")
         
-        # Levels
-        if os.path.exists(LEVELS_FILE):
-            with open(LEVELS_FILE, "r") as f:
-                levels_data = json.load(f)
-            msg += f"<b>levels.json</b> ({len(levels_data)} токенів):\n"
-            msg += f"<code>{json.dumps(levels_data, indent=2, ensure_ascii=False)}</code>\n\n"
-        else:
-            msg += "<b>levels.json</b>: файл не знайдено\n\n"
-        
-        # Symbols
-        if os.path.exists(SYMBOLS_FILE):
-            with open(SYMBOLS_FILE, "r") as f:
-                symbols_data = json.load(f)
-            msg += f"<b>symbols.json</b> ({len(symbols_data)} токенів):\n"
-            msg += f"<code>{json.dumps(symbols_data, indent=2, ensure_ascii=False)}</code>"
-        else:
-            msg += "<b>symbols.json</b>: файл не знайдено"
-        
-        send_telegram_message(chat_id, msg)
         return
 
     handle_text(
