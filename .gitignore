@@ -46,3 +46,7 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+
+# Real data files (не комітимо)
+levels.json
+symbols.json

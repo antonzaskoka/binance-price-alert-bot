@@ -21,6 +21,24 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "database.db")
 LEVELS_FILE = os.path.join(BASE_DIR, "levels.json")
 SYMBOLS_FILE = os.path.join(BASE_DIR, "symbols.json")
+# Ініціалізація файлів з шаблонів якщо не існують
+def init_data_files():
+    """Створює levels.json та symbols.json з шаблонів якщо їх немає"""
+    import shutil
+    
+    levels_example = os.path.join(BASE_DIR, "levels.json.example")
+    symbols_example = os.path.join(BASE_DIR, "symbols.json.example")
+    
+    if not os.path.exists(LEVELS_FILE) and os.path.exists(levels_example):
+        shutil.copy(levels_example, LEVELS_FILE)
+        print(f"Created {LEVELS_FILE} from template")
+    
+    if not os.path.exists(SYMBOLS_FILE) and os.path.exists(symbols_example):
+        shutil.copy(symbols_example, SYMBOLS_FILE)
+        print(f"Created {SYMBOLS_FILE} from template")
+
+init_data_files()
+
 CHART_DIR = os.path.join(BASE_DIR, "charts")
 
 os.makedirs(CHART_DIR, exist_ok=True)
