@@ -98,3 +98,76 @@ def sync_klines(conn, symbol):
 
     conn.commit()
     return rows
+
+def sync_hourly_klines(conn, symbol):
+    """
+    Синхронізує годинні бари (1h) для volume alerts
+    Завантажує останні 400 годин (~17 днів)
+    """
+    table_name = f"{symbol.lower()}_1h"
+    
+    # Створюємо таблицю якщо немає
+    conn.execute(f"""
+        CREATE TABLE IF NOT EXISTS {table_name} (
+            open_time_ms INTEGER PRIMARY KEY,
+            open_time_utc TEXT,
+            open REAL,
+            high REAL,
+            low REAL,
+            close REAL,
+            volume REAL
+        )
+    """)
+    
+    # Знаходимо останній запис
+    cur = conn.execute(
+        f"SELECT MAX(open_time_ms) FROM {table_name}"
+    )
+    last_ms = cur.fetchone()[0]
+    
+    if last_ms:
+        start_time = last_ms + 3600000  # +1 година
+    else:
+        # Перше завантаження: 400 годин назад
+        start_time = int((datetime.now().timestamp() - 400 * 3600) * 1000)
+    
+    end_time = int(datetime.now().timestamp() * 1000)
+    
+    # Завантажуємо з Binance
+    from utils.binance_api import fetch_klines
+    
+    klines = fetch_klines(
+        symbol=symbol,
+        interval="1h",
+        start_time=start_time,
+        end_time=end_time,
+        limit=1000
+    )
+    
+    if not klines:
+        return 0
+    
+    # Записуємо
+    for k in klines:
+        open_time_ms = k[0]
+        open_time_utc = datetime.fromtimestamp(open_time_ms / 1000).isoformat()
+        
+        conn.execute(
+            f"""
+            INSERT OR IGNORE INTO {table_name}
+            (open_time_ms, open_time_utc, open, high, low, close, volume)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                open_time_ms,
+                open_time_utc,
+                float(k[1]),  # open
+                float(k[2]),  # high
+                float(k[3]),  # low
+                float(k[4]),  # close
+                float(k[5])   # volume
+            )
+        )
+    
+    conn.commit()
+    return len(klines)

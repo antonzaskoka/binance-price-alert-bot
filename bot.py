@@ -27,6 +27,11 @@ from charts.menu_chart import build_menu_chart
 from utils.binance_api import fetch_last_bars
 from charts.level_detector import detect_support_resistance, format_detected_level_info
 from alerts.alert_types import calculate_range_pct
+from alerts.volume_alert import check_volume_alert, format_volume_alert
+from charts.volume_alert_chart import build_volume_alert_chart
+from database.db_manager import sync_hourly_klines
+from config import VOLUME_CHECK_INTERVAL
+from database.db_cleanup import cleanup_old_data
 
 # ==============================
 # TELEGRAM UPDATES
@@ -284,6 +289,8 @@ def main():
         handle_update(update, conn)
 
     last_alert_check = 0
+    last_volume_check = 0
+    last_cleanup = 0
 
     while True:
         try:
@@ -317,6 +324,60 @@ def main():
                     check_alerts(conn, s, ADMIN_CHAT_ID)
 
                 last_alert_check = current_time
+            
+            # ===== TYPE 3: VOLUME BREAKOUT ALERTS (щогодини) =====
+            if current_time - last_volume_check >= VOLUME_CHECK_INTERVAL:
+                logger.info("Checking volume alerts...")
+                
+                for s in all_symbols:
+                    cfg = SYMBOLS.get(s)
+                    if not cfg:
+                        continue
+                    
+                    # Синхронізуємо годинні дані
+                    added_hourly = sync_hourly_klines(conn, s)
+                    if added_hourly:
+                        logger.info(f"{s}: synced {added_hourly} hourly bars")
+                    
+                    # Перевіряємо volume alert
+                    alert_data = check_volume_alert(conn, s, cfg)
+                    
+                    if alert_data:
+                        msg = format_volume_alert(alert_data)
+                        
+                        # Будуємо графік
+                        from database.models import load_hourly_bars
+                        df = load_hourly_bars(conn, s, limit=90)
+                        
+                        if df is not None:
+                            from alerts.volume_alert import calculate_volume_usdt
+                            df = calculate_volume_usdt(df)
+                            
+                            chart_path = build_volume_alert_chart(df, s)
+                            
+                            send_alert_chart(
+                                chat_id=ADMIN_CHAT_ID,
+                                symbol=s,
+                                timeframe="1h",
+                                chart_path=chart_path,
+                                price=alert_data["current_price"],
+                                reason=msg
+                            )
+                            
+                            logger.info(f"Volume alert sent: {s}")
+                
+                last_volume_check = current_time
+
+            # ✅ ОЧИЩЕННЯ БД (раз на добу)
+            if current_time - last_cleanup >= 86400:  # 24 години
+                logger.info("Starting database cleanup...")
+                try:
+                    deleted = cleanup_old_data(conn, days_to_keep=30)
+                    logger.info(f"Database cleanup finished: {deleted} rows deleted")
+                except Exception as e:
+                    logger.error(f"Database cleanup error: {e}")
+                
+                last_cleanup = current_time
 
         except Exception:
             logger.exception("Main loop error")

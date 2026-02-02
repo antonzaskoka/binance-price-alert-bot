@@ -110,3 +110,6 @@ BINANCE_INTERVAL_MAP = {
     "4h": "4h",
     "1d": "1d",
 }
+
+# Volume alerts
+VOLUME_CHECK_INTERVAL = 3600  # Перевірка кожну годину (секунди)

@@ -87,3 +87,93 @@ def can_alert(conn, symbol, alert_type, cooldown_min):
     """, (symbol, alert_type, now))
     conn.commit()
     return True
+
+def load_hourly_bars(conn, symbol, limit=400):
+    """
+    Завантажує останні N годинних барів
+    
+    Returns:
+        DataFrame або None
+    """
+    table = f"{symbol.lower()}_1h"
+    
+    try:
+        cur = conn.execute(
+            f"""
+            SELECT open_time_utc, open, high, low, close, volume
+            FROM {table}
+            ORDER BY open_time_ms DESC
+            LIMIT ?
+            """,
+            (limit,)
+        )
+        
+        rows = cur.fetchall()
+        
+        if not rows:
+            return None
+        
+        df = pd.DataFrame(
+            rows,
+            columns=["open_time", "open", "high", "low", "close", "volume"]
+        )
+        
+        df = df.iloc[::-1].reset_index(drop=True)
+        df["open_time"] = pd.to_datetime(df["open_time"])
+        
+        return df
+        
+    except Exception as e:
+        logger.error(f"Error loading hourly bars for {symbol}: {e}")
+        return None
+
+
+def can_alert_volume(conn, symbol, cooldown_hours):
+    """
+    Перевіряє чи можна надіслати volume alert (cooldown)
+    
+    Returns:
+        bool
+    """
+    alert_type = "volume_breakout"
+    
+    cur = conn.execute(
+        """
+        SELECT triggered_at_utc
+        FROM alerts
+        WHERE symbol = ? AND alert_type = ?
+        ORDER BY triggered_at_utc DESC
+        LIMIT 1
+        """,
+        (symbol, alert_type)
+    )
+    
+    row = cur.fetchone()
+    
+    if not row:
+        # Перший алерт
+        conn.execute(
+            """
+            INSERT INTO alerts (symbol, alert_type, triggered_at_utc)
+            VALUES (?, ?, datetime('now'))
+            """,
+            (symbol, alert_type)
+        )
+        conn.commit()
+        return True
+    
+    last_alert = datetime.fromisoformat(row[0])
+    now = datetime.utcnow()
+    
+    if (now - last_alert).total_seconds() / 3600 >= cooldown_hours:
+        conn.execute(
+            """
+            INSERT INTO alerts (symbol, alert_type, triggered_at_utc)
+            VALUES (?, ?, datetime('now'))
+            """,
+            (symbol, alert_type)
+        )
+        conn.commit()
+        return True
+    
+    return False
