@@ -46,3 +46,35 @@ def fetch_last_bars(symbol, timeframe, limit=90):
     ].astype(float)
 
     return df
+
+def fetch_klines(symbol, interval, start_time, end_time, limit=1000):
+    """
+    Завантажує klines (свічки) з Binance
+    
+    Args:
+        symbol: наприклад "BTCUSDT"
+        interval: "1m", "1h", "1d" тощо
+        start_time: timestamp в мілісекундах
+        end_time: timestamp в мілісекундах
+        limit: максимальна кількість барів (до 1000)
+    
+    Returns:
+        list of lists: [[timestamp, open, high, low, close, volume, ...], ...]
+    """
+    url = "https://api.binance.com/api/v3/klines"
+    
+    params = {
+        "symbol": symbol,
+        "interval": interval,
+        "startTime": start_time,
+        "endTime": end_time,
+        "limit": limit
+    }
+    
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        print(f"Error fetching klines for {symbol}: {e}")
+        return []
