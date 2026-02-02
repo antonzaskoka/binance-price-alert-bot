@@ -45,6 +45,27 @@ def ensure_tables(conn, symbol):
     conn.commit()
 
 
+def ensure_alerts_table(conn):
+    """
+    Створює таблицю для відстеження алертів (cooldown)
+    """
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS alerts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            symbol TEXT NOT NULL,
+            alert_type TEXT NOT NULL,
+            triggered_at_utc TEXT NOT NULL
+        )
+    """)
+    
+    # Індекс для швидкого пошуку
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_alerts_symbol_type 
+        ON alerts(symbol, alert_type)
+    """)
+    
+    conn.commit()
+
 def last_open_ms(conn, symbol):
     """Повертає останній timestamp у БД для символа"""
     cur = conn.execute(f"SELECT MAX(open_time_ms) FROM {table_name(symbol)}")

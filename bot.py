@@ -274,6 +274,10 @@ def main():
     logger.info("Bot started")
 
     conn = get_conn()
+
+    from database.db_manager import ensure_alerts_table
+    ensure_alerts_table(conn)
+    
     for s in SYMBOLS:
         ensure_tables(conn, s)
 
