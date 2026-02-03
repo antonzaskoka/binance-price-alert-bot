@@ -23,7 +23,7 @@ from datetime import datetime, timezone
 from alerts.symbols_manager import load_symbols as reload_symbols
 from alerts.checker import check_alerts
 from alerts.alert_types import calculate_range_pct
-from alerts.alert_types import calculate_atr
+from alerts.alert_formatter import calculate_atr
 from alerts.volume_alert import check_volume_alert, format_volume_alert, calculate_volume_usdt
 from alerts.levels_manager import load_levels
 import alerts.levels_manager as lm
