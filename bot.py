@@ -7,6 +7,8 @@
 from utils.logging_config import setup_logging
 setup_logging()
 
+import os
+import time
 import logging
 logger = logging.getLogger(__name__)
 
@@ -385,7 +387,6 @@ def main():
                             logger.info(f"Volume alert sent: {s}")
                     
                     # ✅ ЗАТРИМКА між токенами (захист від rate limit)
-                    import time
                     time.sleep(0.5)  # 500мс між токенами
                     
                     cfg = SYMBOLS.get(s)
