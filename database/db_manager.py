@@ -68,7 +68,7 @@ def ensure_alerts_table(conn):
 
 def last_open_ms(conn, symbol):
     """Повертає останній timestamp у БД для символа"""
-    cur = conn.execute(f"SELECT MAX(open_time_ms) FROM {table_name(symbol)}")
+    cur = conn.execute(f"SELECT MAX(open_time_ms) FROM "{table_name(symbol)}"")
     r = cur.fetchone()
     return r[0] if r and r[0] else None
 
@@ -112,7 +112,7 @@ def sync_klines(conn, symbol):
         ts = k[0]
         utc = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         conn.execute(
-            f"INSERT OR IGNORE INTO {table_name(symbol)} VALUES (?,?,?,?,?,?,?)",
+            f"INSERT OR IGNORE INTO "{table_name(symbol)}" VALUES (?,?,?,?,?,?,?)",
             (ts, utc, float(k[1]), float(k[2]), float(k[3]), float(k[4]), float(k[5]))
         )
         rows += 1
@@ -129,7 +129,7 @@ def sync_hourly_klines(conn, symbol):
     
     # Створюємо таблицю якщо немає
     conn.execute(f"""
-        CREATE TABLE IF NOT EXISTS {table_name} (
+        CREATE TABLE IF NOT EXISTS "{table_name}" (
             open_time_ms INTEGER PRIMARY KEY,
             open_time_utc TEXT,
             open REAL,
@@ -142,7 +142,7 @@ def sync_hourly_klines(conn, symbol):
     
     # Знаходимо останній запис
     cur = conn.execute(
-        f"SELECT MAX(open_time_ms) FROM {table_name}"
+        f"SELECT MAX(open_time_ms) FROM "{table_name}""
     )
     last_ms = cur.fetchone()[0]
     
@@ -175,7 +175,7 @@ def sync_hourly_klines(conn, symbol):
         
         conn.execute(
             f"""
-            INSERT OR IGNORE INTO {table_name}
+            INSERT OR IGNORE INTO "{table_name}"
             (open_time_ms, open_time_utc, open, high, low, close, volume)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
