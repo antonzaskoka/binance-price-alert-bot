@@ -234,7 +234,8 @@ def check_volume_alert(conn, symbol, cfg):
     price_change_pct = ((current_price - price_24h_ago) / price_24h_ago) * 100
     
     # Розраховуємо SL та позицію
-    sl = current_price * 0.01  # 1% від ціни
+    sl_small_pct = cfg.get("sl_small_pct", 0.01)  # За замовчуванням 1%
+    sl = current_price * sl_small_pct
     position_size = RISK_USDT / sl if sl > 0 else 0
     
     # Шукаємо найближчий рівень
@@ -282,6 +283,20 @@ def check_volume_alert(conn, symbol, cfg):
     symbol_levels = levels_map.get(symbol, [])
     nearest_level = find_nearest_level(symbol_levels, current_price) if symbol_levels else None
     
+    # Розраховуємо метрики
+    metrics = calculate_volume_metrics(df)
+    
+    if not metrics:
+        return None
+    
+    volume_24h = metrics["volume_24h"]
+    volume_avg_14d = metrics["volume_avg_14d"]
+    ratio = metrics["ratio"]
+    
+    # Фільтр: ігноруємо малоліквідні токени
+    if volume_avg_14d < MIN_AVG_VOLUME:
+        return None
+
     return {
         "symbol": symbol,
         "current_price": current_price,

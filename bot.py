@@ -32,6 +32,7 @@ from charts.volume_alert_chart import build_volume_alert_chart
 from database.db_manager import sync_hourly_klines
 from config import VOLUME_CHECK_INTERVAL
 from database.db_cleanup import cleanup_old_data
+from utils.binance_markets import fetch_all_usdt_symbols
 
 # ==============================
 # TELEGRAM UPDATES
@@ -295,6 +296,8 @@ def main():
     last_alert_check = 0
     last_volume_check = 0
     last_cleanup = 0
+    last_markets_update = 0  
+    binance_symbols = []  # ✅ Список всіх токенів з Binance
 
     while True:
         try:
@@ -329,16 +332,61 @@ def main():
 
                 last_alert_check = current_time
             
-            # ===== TYPE 3: VOLUME BREAKOUT ALERTS (щогодини) =====
+            # ✅ TYPE 3: Volume alerts (кожну годину)
             if current_time - last_volume_check >= VOLUME_CHECK_INTERVAL:
                 logger.info("Checking volume alerts...")
                 
-                # ✅ Виключаємо металеві ф'ючерси
+                # ✅ Оновлюємо список токенів з Binance кожні 6 годин
+                if current_time - last_markets_update >= 21600:  # 6 годин
+                    binance_symbols = fetch_all_usdt_symbols()  # ✅ Без фільтрів
+                    last_markets_update = current_time
+                    logger.info(f"Updated markets list: {len(binance_symbols)} USDT pairs")
+                
+                # ✅ Перевіряємо ВСІ токени з Binance (не тільки з symbols.json)
                 excluded_symbols = ["XAUUSDT", "XAGUSDT"]
                 
-                for s in all_symbols:
+                for s in binance_symbols:
                     if s in excluded_symbols:
                         continue
+                    
+                    # ✅ Для volume alerts cfg не обов'язковий
+                    cfg = SYMBOLS.get(s, {
+                        "sl_small_pct": 0.01,
+                        "sl_big_pct": 0.02
+                    })
+                    
+                    added_hourly = sync_hourly_klines(conn, s)
+                    if added_hourly:
+                        logger.info(f"{s}: synced {added_hourly} hourly bars")
+                    
+                    alert_data = check_volume_alert(conn, s, cfg)
+                    
+                    if alert_data:
+                        msg = format_volume_alert(alert_data)
+                        
+                        from database.models import load_hourly_bars
+                        df = load_hourly_bars(conn, s, limit=90)
+                        
+                        if df is not None:
+                            from alerts.volume_alert import calculate_volume_usdt
+                            df = calculate_volume_usdt(df)
+                            
+                            chart_path = build_volume_alert_chart(df, s)
+                            
+                            send_alert_chart(
+                                chat_id=ADMIN_CHAT_ID,
+                                symbol=s,
+                                timeframe="1h",
+                                chart_path=chart_path,
+                                price=alert_data["current_price"],
+                                reason=msg
+                            )
+                            
+                            logger.info(f"Volume alert sent: {s}")
+                    
+                    # ✅ ЗАТРИМКА між токенами (захист від rate limit)
+                    import time
+                    time.sleep(0.5)  # 500мс між токенами
                     
                     cfg = SYMBOLS.get(s)
                     if not cfg:
