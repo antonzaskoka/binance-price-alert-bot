@@ -10,7 +10,7 @@ import re
 from telegram.keyboards import (
     main_menu, back_menu, timeframe_menu, levels_menu,
     symbols_menu, param_names_readable,
-    dynamic_symbols_keyboard, dynamic_levels_keyboard_three_columnsб
+    dynamic_symbols_keyboard, dynamic_levels_keyboard_three_columns,
     sort_with_pinned,
     volume_thresholds_menu, volume_multipliers_menu
 )
