@@ -125,7 +125,7 @@ def sync_hourly_klines(conn, symbol):
     Синхронізує годинні бари (1h) для volume alerts
     Завантажує останні 400 годин (~17 днів)
     """
-    table_name = f"{symbol.lower()}_1h"
+    table_name = f"kline_{symbol.lower()}_1h"
     
     # Створюємо таблицю якщо немає
     conn.execute(f"""

@@ -96,7 +96,7 @@ def load_hourly_bars(conn, symbol, limit=400):
     Returns:
         DataFrame або None
     """
-    table = f"{symbol.lower()}_1h"
+    table = f"kline_{symbol.lower()}_1h"
     
     try:
         cur = conn.execute(
