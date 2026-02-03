@@ -23,18 +23,19 @@ from config import SYMBOLS, ADMIN_CHAT_ID, ALIVE_INTERVAL, RISK_USDT
 from alerts.symbols_manager import load_symbols as reload_symbols
 from database.db_manager import get_conn, ensure_tables, sync_klines
 from alerts.checker import check_alerts
-from telegram.client import send_telegram_message, send_alert_chart
+from telegram.client import send_telegram_message, send_alert_chart, send_menu_chart
 from telegram.menu_handler import handle_text, handle_callback, show_main_menu
 from charts.menu_chart import build_menu_chart
 from utils.binance_api import fetch_last_bars
 from charts.level_detector import detect_support_resistance, format_detected_level_info
 from alerts.alert_types import calculate_range_pct
-from alerts.volume_alert import check_volume_alert, format_volume_alert
+from alerts.volume_alert import check_volume_alert, format_volume_alert, calculate_volume_usdt
 from charts.volume_alert_chart import build_volume_alert_chart
 from database.db_manager import sync_hourly_klines
 from config import VOLUME_CHECK_INTERVAL
 from database.db_cleanup import cleanup_old_data
 from utils.binance_markets import fetch_all_usdt_symbols
+from database.models import load_hourly_bars
 
 # ==============================
 # TELEGRAM UPDATES
@@ -166,7 +167,6 @@ def handle_update(update, conn):
                 custom_price=custom_price
             )
 
-            from telegram.client import send_menu_chart
             send_menu_chart(
                 chat_id=chat_id,
                 chart_path=chart_path,
@@ -366,11 +366,9 @@ def main():
                     if alert_data:
                         msg = format_volume_alert(alert_data)
                         
-                        from database.models import load_hourly_bars
                         df = load_hourly_bars(conn, s, limit=90)
                         
                         if df is not None:
-                            from alerts.volume_alert import calculate_volume_usdt
                             df = calculate_volume_usdt(df)
                             
                             chart_path = build_volume_alert_chart(df, s)
@@ -405,11 +403,9 @@ def main():
                         msg = format_volume_alert(alert_data)
                         
                         # Будуємо графік
-                        from database.models import load_hourly_bars
                         df = load_hourly_bars(conn, s, limit=90)
                         
                         if df is not None:
-                            from alerts.volume_alert import calculate_volume_usdt
                             df = calculate_volume_usdt(df)
                             
                             chart_path = build_volume_alert_chart(df, s)
