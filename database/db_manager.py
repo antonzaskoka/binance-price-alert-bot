@@ -24,7 +24,7 @@ def table_name(symbol):
 def ensure_tables(conn, symbol):
     """Створює таблиці для символа, якщо їх немає"""
     conn.execute(f"""
-        CREATE TABLE IF NOT EXISTS {table_name(symbol)} (
+        CREATE TABLE IF NOT EXISTS "{table_name(symbol)}" (
             open_time_ms INTEGER PRIMARY KEY,
             open_time_utc TEXT,
             open REAL,
