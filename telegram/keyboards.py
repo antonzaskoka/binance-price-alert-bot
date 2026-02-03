@@ -179,32 +179,23 @@ def volume_thresholds_menu():
 
 def volume_multipliers_menu(avg_threshold):
     """
-    Кнопки з мультиплікаторами для даного діапазону avg
+    Кнопки з мультиплікаторами (стандартний набір)
     """
-    from alerts.volume_thresholds import VOLUME_THRESHOLDS
-
-    # Знаходимо мінімальний ratio для цього порогу
-    min_ratio = 1.0
-    for max_avg, ratio in sorted(VOLUME_THRESHOLDS, key=lambda x: x[0], reverse=True):
-        if avg_threshold >= max_avg:
-            min_ratio = ratio
-            break
-
-    # Генеримо мультиплікатори від min_ratio з кроком 0.5
-    multipliers = []
-    current = min_ratio
-    while current <= 10.0:
-        multipliers.append(current)
-        current = round(current + 0.5, 1)
+    # ✅ Стандартні мультиплікатори
+    multipliers = [1.3, 1.5, 2, 3, 4, 5, 6, 10, 15]
 
     # Кнопки в 3 колонки
     keyboard = []
     for i in range(0, len(multipliers), 3):
-        row = [f"{multipliers[i]}x"]
-        if i + 1 < len(multipliers):
-            row.append(f"{multipliers[i + 1]}x")
-        if i + 2 < len(multipliers):
-            row.append(f"{multipliers[i + 2]}x")
+        row = []
+        for j in range(3):
+            if i + j < len(multipliers):
+                mult = multipliers[i + j]
+                # Форматуємо: 1.3, 1.5 з десятковою, решта без
+                if mult < 2:
+                    row.append(f"{mult}x")
+                else:
+                    row.append(f"{int(mult)}x")
         keyboard.append(row)
 
     keyboard.append(["⬅️ Назад"])

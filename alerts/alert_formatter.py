@@ -78,19 +78,19 @@ def format_threshold_alert(alert_data, df):
 
     # Визначаємо назву алерта за діапазоном часу
     if minutes <= 2:
-        alert_label = "SMALL RANGE"
+        alert_label = "📈⚡💨SMALL RANGE"
     elif minutes <= 20:
-        alert_label = "MIDDLE RANGE"
+        alert_label = "📈🚀💥MIDDLE RANGE"
     else:
-        alert_label = "LONG RANGE"
+        alert_label = "📈🔥🌟LONG RANGE"
 
     # ✅ Отримуємо threshold для підпису
     threshold_value = cfg[f"{threshold_name.lower()}_threshold"]
     # Формуємо повідомлення
     msg = (
-        f"🚨 <b>{symbol}</b>\n"
+        f"🔥🚨💥 <b>{symbol}</b>\n"
         f"🕒 {datetime.now().strftime('%H:%M:%S')}\n\n"
-        f"📊 {alert_label} Alert ({minutes}m - {threshold_value}%): <b>{pct:.2f}%</b>\n\n"
+        f"{alert_label} Alert ({minutes}m - {threshold_value}%): <b>{pct:.2f}%</b>\n\n"
         f"💰 Price (last bar open): <b>${price:.4f}</b>\n"
         f"📉 Min price ({minutes}m): {min_price:.4f}\n"
         f"📈 Max price ({minutes}m): {max_price:.4f}\n\n"
@@ -163,7 +163,7 @@ def format_level_touch_alert(alert_data, df):
     valid_levels = filter_levels_for_range(levels, price, 0.05)  # ±5%
 
     msg = (
-        f"🎯 <b>{symbol}</b> — LEVEL ALERT\n"
+        f"➡️📊🎯 <b>{symbol}</b> — LEVEL ALERT\n"
         f"🕒 {datetime.now().strftime('%H:%M:%S')}\n\n"
         f"{action} level: <b>{touched_level:.4f}</b>\n\n"
         f"💰 Price (last bar open): <b>{price:.4f}</b>\n\n"

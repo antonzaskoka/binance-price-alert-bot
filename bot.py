@@ -17,25 +17,30 @@ logger = logging.getLogger(__name__)
 # ==============================
 import time
 import requests
-from datetime import datetime, timezone
+import config
 
-from config import SYMBOLS, ADMIN_CHAT_ID, ALIVE_INTERVAL, RISK_USDT
+from datetime import datetime, timezone
 from alerts.symbols_manager import load_symbols as reload_symbols
-from database.db_manager import get_conn, ensure_tables, sync_klines
 from alerts.checker import check_alerts
+from alerts.alert_types import calculate_range_pct
+from alerts.alert_types import calculate_atr
+from alerts.volume_alert import check_volume_alert, format_volume_alert, calculate_volume_usdt
+from alerts.levels_manager import load_levels
+import alerts.levels_manager as lm
+from config import SYMBOLS, ADMIN_CHAT_ID, ALIVE_INTERVAL, RISK_USDT
+from config import VOLUME_CHECK_INTERVAL
+from charts.menu_chart import build_menu_chart
+from charts.level_detector import detect_support_resistance, format_detected_level_info
+from charts.volume_alert_chart import build_volume_alert_chart
+from database.db_manager import get_conn, ensure_tables, sync_klines
+from database.db_manager import sync_hourly_klines
+from database.db_cleanup import cleanup_old_data
+from database.models import load_hourly_bars
+from database.db_manager import ensure_alerts_table
 from telegram.client import send_telegram_message, send_alert_chart, send_menu_chart
 from telegram.menu_handler import handle_text, handle_callback, show_main_menu
-from charts.menu_chart import build_menu_chart
 from utils.binance_api import fetch_last_bars
-from charts.level_detector import detect_support_resistance, format_detected_level_info
-from alerts.alert_types import calculate_range_pct
-from alerts.volume_alert import check_volume_alert, format_volume_alert, calculate_volume_usdt
-from charts.volume_alert_chart import build_volume_alert_chart
-from database.db_manager import sync_hourly_klines
-from config import VOLUME_CHECK_INTERVAL
-from database.db_cleanup import cleanup_old_data
 from utils.binance_markets import fetch_all_usdt_symbols
-from database.models import load_hourly_bars
 
 # ==============================
 # TELEGRAM UPDATES
@@ -137,24 +142,46 @@ def handle_update(update, conn):
                 short_pct = calculate_range_pct(df_2, current_price)
                 caption += f"\n   Short (~2m): <b>{short_pct:.2f}%</b>"
 
-            # Розрахунок SL та позицій (використовуємо глобальний RISK_USDT)
+            # Розрахунок ATR за 90 барів обраного таймфрейму     
+            # Беремо останні 90 барів (незалежно від таймфрейму)
+            atr_bars = min(90, len(df))
+            
+            if atr_bars > 0:
+                df_atr = df.tail(atr_bars)
+                atr = calculate_atr(df_atr)
+            else:
+                atr = None
+            
+            # Розраховуємо SL та позицію
             cfg = SYMBOLS.get(symbol)
             if cfg:
                 sl_small = current_price * cfg["sl_small_pct"]
                 sl_big = current_price * cfg["sl_big_pct"]
-
+                
+                # ✅ ДОДАНО: ATR з кольоровим емоджі
+                if atr:
+                    # Визначаємо колір емоджі
+                    if atr < sl_small:
+                        atr_emoji = "🟢"  # green - маленький ATR
+                    elif atr < sl_big:
+                        atr_emoji = "🟡"  # yellow - середній ATR
+                    else:
+                        atr_emoji = "🔴"  # red - великий ATR
+                    
+                    # Розраховуємо ATR як відсоток від ціни
+                    atr_pct = (atr / current_price) * 100
+                    
+                    caption += f"\n\n📐 ATR (90 bars {timeframe}): {atr_emoji} <b>{atr:.4f}</b> ({atr_pct:.2f}%)"
+                
                 if sl_small > 0 and sl_big > 0:
                     size_small_sl = RISK_USDT / sl_small
                     size_big_sl = RISK_USDT / sl_big
+                    
+                    caption += f"\n\n🔻 SL SMALL: <b>${sl_small:.4f}</b>"
+                    caption += f"\n   Position: <b>{size_small_sl:.4f} {symbol[:-4]}</b>"
+                    caption += f"\n\n🔺 SL BIG: <b>${sl_big:.4f}</b>"
+                    caption += f"\n   Position: <b>{size_big_sl:.4f} {symbol[:-4]}</b>"
 
-                    # Ціни входу для позицій
-                    price_big = current_price + sl_small       # велика позиція = маленький SL
-                    price_small = current_price + sl_big       # мала позиція = великий SL
-
-                    caption += f"\n\n💲  SL Small: <b>${sl_small:.4f}</b>"
-                    caption += f"\n🌎🚀 Position (big): <b>{size_small_sl:.4f} {symbol[:-4]}</b> @ {price_big:.4f}"
-                    caption += f"\n\n💲💸 SL Big: <b>${sl_big:.4f}</b>"
-                    caption += f"\n🚀 Position (small): <b>{size_big_sl:.4f} {symbol[:-4]}</b> @ {price_small:.4f}"
             # Виявлений рівень
             if detected_level:
                 caption += format_detected_level_info(detected_level, current_price)
@@ -278,7 +305,6 @@ def main():
 
     conn = get_conn()
 
-    from database.db_manager import ensure_alerts_table
     ensure_alerts_table(conn)
 
     for s in SYMBOLS:
@@ -287,7 +313,6 @@ def main():
     # Динамічне оновлення SYMBOLS при зміні файлу
     def refresh_symbols():
         """Перезавантажує список токенів"""
-        import config
         config.SYMBOLS = reload_symbols()
 
     # Обробка накопичених повідомлень
@@ -314,8 +339,6 @@ def main():
             if current_time - last_alert_check >= 60:
                 refresh_symbols()
 
-                from alerts.levels_manager import load_levels
-                import alerts.levels_manager as lm
                 lm._LEVELS_CACHE = {}
                 lm._LEVELS_MTIME = None
 
@@ -410,7 +433,6 @@ def main():
                             
                             chart_path = build_volume_alert_chart(df, s)
                             
-                            from telegram.client import send_alert_chart
                             send_alert_chart(
                                 chat_id=ADMIN_CHAT_ID,
                                 symbol=s,
