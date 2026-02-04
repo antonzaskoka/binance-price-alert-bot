@@ -51,12 +51,21 @@ def build_alert_chart(df, symbol, levels=None):
     # ✅ Додаємо вертикальні лінії кожні 15 хвилин
     total_bars = len(df)
     for i in range(total_bars - 1, -1, -15):  # Кожні 15 барів від кінця
+<<<<<<< HEAD
         ax.axvline(x=i, color="gray", linestyle=":", linewidth=0.5, alpha=0.3)
     
     # ✅ Додаємо тікер на графік
     ax.text(
         0.02, 0.98, symbol,
         transform=ax.transAxes,
+=======
+        ax_price.axvline(x=i, color="gray", linestyle=":", linewidth=0.5, alpha=0.3)
+    
+    # ✅ Додаємо тікер на графік
+    ax_price.text(
+        0.02, 0.98, symbol,
+        transform=ax_price.transAxes,
+>>>>>>> temp-fix
         fontsize=16,
         fontweight="bold",
         verticalalignment="top",
