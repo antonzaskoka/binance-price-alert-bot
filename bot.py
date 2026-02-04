@@ -328,137 +328,128 @@ def main():
 
     while True:
         try:
-            # 1. ЗАВЖДИ ОБРОБЛЯЄМО TELEGRAM ОНОВЛЕННЯ
+            current_time = time.time()
+            current_datetime = datetime.now()
+            current_minute = current_datetime.minute
+            
+            # ===== 1. ЗАВЖДИ ОБРОБЛЯЄМО TELEGRAM =====
             updates = get_telegram_updates()
             for update in updates:
                 handle_update(update, conn)
 
-            # 2. ПЕРЕВІРЯЄМО АЛЕРТИ ТІЛЬКИ РАЗ НА ХВИЛИНУ
-            current_time = time.time()
-
+            # ===== 2. ХВИЛИННІ БАРИ ДЛЯ SYMBOLS.JSON (щохвилини) =====
             if current_time - last_alert_check >= 60:
                 refresh_symbols()
-
-                lm._LEVELS_CACHE = {}
-                lm._LEVELS_MTIME = None
-
-                levels_map = load_levels()
-
-                all_symbols = set(SYMBOLS.keys()) | set(levels_map.keys())
-
-                for s in all_symbols:
+                
+                # Тільки токени з symbols.json
+                for s in SYMBOLS.keys():
                     ensure_tables(conn, s)
-
+                    
                     added = sync_klines(conn, s)
                     if added:
-                        logger.info(f"{s}: synced {added} rows")
-
+                        logger.info(f"{s}: synced {added} 1m bars")
+                    
+                    # Перевіряємо threshold alerts
                     check_alerts(conn, s, ADMIN_CHAT_ID)
-
+                
                 last_alert_check = current_time
             
-            # ✅ TYPE 3: Volume alerts (кожну годину)
-            if current_time - last_volume_check >= VOLUME_CHECK_INTERVAL:
-                logger.info("Checking volume alerts...")
-                
-                # ✅ Оновлюємо список токенів з Binance кожні 6 годин
-                if current_time - last_markets_update >= 21600:  # 6 годин
-                    binance_symbols = fetch_all_usdt_symbols()  # ✅ Без фільтрів
-                    last_markets_update = current_time
-                    logger.info(f"Updated markets list: {len(binance_symbols)} USDT pairs")
-                
-                # ✅ Перевіряємо ВСІ токени з Binance (не тільки з symbols.json)
-                excluded_symbols = ["XAUUSDT", "XAGUSDT"]
-                
-                for s in binance_symbols:
-                    if s in excluded_symbols:
-                        continue
+            # ===== 3. ХВИЛИННІ БАРИ ДЛЯ LEVELS.JSON (15-та і 45-та хвилини) =====
+            if current_minute == 15 or current_minute == 45:
+                # Перевіряємо чи вже обробили цю хвилину
+                if not hasattr(main, 'last_levels_minute') or main.last_levels_minute != current_minute:
+                    main.last_levels_minute = current_minute
                     
-                    # ✅ Для volume alerts cfg не обов'язковий
-                    cfg = SYMBOLS.get(s, {
-                        "sl_small_pct": 0.01,
-                        "sl_big_pct": 0.02
-                    })
+                    logger.info(f"Loading bars for levels.json tokens (minute {current_minute})")
                     
-                    added_hourly = sync_hourly_klines(conn, s)
-                    if added_hourly:
-                        logger.info(f"{s}: synced {added_hourly} hourly bars")
+                    lm._LEVELS_CACHE = {}
+                    lm._LEVELS_MTIME = None
+                    levels_map = load_levels()
                     
-                    alert_data = check_volume_alert(conn, s, cfg)
+                    # Тільки токени з levels.json (виключаємо ті що вже в symbols.json)
+                    levels_only_symbols = set(levels_map.keys()) - set(SYMBOLS.keys())
                     
-                    if alert_data:
-                        msg = format_volume_alert(alert_data)
+                    for s in levels_only_symbols:
+                        ensure_tables(conn, s)
                         
-                        df = load_hourly_bars(conn, s, limit=90)
+                        added = sync_klines(conn, s)
+                        if added:
+                            logger.info(f"{s}: synced {added} 1m bars (levels)")
                         
-                        if df is not None:
-                            df = calculate_volume_usdt(df)
-                            
-                            chart_path = build_volume_alert_chart(df, s)
-                            
-                            send_alert_chart(
-                                chat_id=ADMIN_CHAT_ID,
-                                symbol=s,
-                                timeframe="1h",
-                                chart_path=chart_path,
-                                price=alert_data["current_price"],
-                                reason=msg
-                            )
-                            
-                            logger.info(f"Volume alert sent: {s}")
+                        # Перевіряємо level touch alerts
+                        cfg = SYMBOLS.get(s, {"sl_small_pct": 0.01, "sl_big_pct": 0.02})
+                        check_alerts(conn, s, ADMIN_CHAT_ID)
+            
+            # ===== 4. ГОДИННІ БАРИ ДЛЯ VOLUME ALERTS (3-тя хвилина кожної години) =====
+            if current_minute == 3:
+                # Перевіряємо чи вже обробили цю хвилину
+                if not hasattr(main, 'last_volume_hour') or main.last_volume_hour != current_datetime.hour:
+                    main.last_volume_hour = current_datetime.hour
                     
-                    # ✅ ЗАТРИМКА між токенами (захист від rate limit)
-                    time.sleep(0.5)  # 500мс між токенами
+                    logger.info(f"Loading hourly bars for volume alerts (hour {current_datetime.hour})")
                     
-                    cfg = SYMBOLS.get(s)
-                    if not cfg:
-                        continue
+                    # Оновлюємо список токенів з Binance кожні 6 годин
+                    if current_time - last_markets_update >= 21600:
+                        binance_symbols = fetch_all_usdt_symbols()
+                        last_markets_update = current_time
+                        logger.info(f"Updated markets list: {len(binance_symbols)} USDT pairs")
                     
-                    # Синхронізуємо годинні дані
-                    added_hourly = sync_hourly_klines(conn, s)
-                    if added_hourly:
-                        logger.info(f"{s}: synced {added_hourly} hourly bars")
+                    excluded_symbols = ["XAUUSDT", "XAGUSDT"]
                     
-                    # Перевіряємо volume alert
-                    alert_data = check_volume_alert(conn, s, cfg)
-                    
-                    if alert_data:
-                        msg = format_volume_alert(alert_data)
+                    for s in binance_symbols:
+                        if s in excluded_symbols:
+                            continue
                         
-                        # Будуємо графік
-                        df = load_hourly_bars(conn, s, limit=90)
+                        cfg = SYMBOLS.get(s, {"sl_small_pct": 0.01, "sl_big_pct": 0.02})
                         
-                        if df is not None:
-                            df = calculate_volume_usdt(df)
+                        # Синхронізуємо годинні дані
+                        added_hourly = sync_hourly_klines(conn, s)
+                        if added_hourly:
+                            logger.info(f"{s}: synced {added_hourly} hourly bars")
+                        
+                        # Перевіряємо volume alert
+                        alert_data = check_volume_alert(conn, s, cfg)
+                        
+                        if alert_data:
+                            msg = format_volume_alert(alert_data)
                             
-                            chart_path = build_volume_alert_chart(df, s)
+                            df = load_hourly_bars(conn, s, limit=90)
                             
-                            send_alert_chart(
-                                chat_id=ADMIN_CHAT_ID,
-                                symbol=s,
-                                timeframe="1h",
-                                chart_path=chart_path,
-                                price=alert_data["current_price"],
-                                reason=msg
-                            )
-                            
-                            logger.info(f"Volume alert sent: {s}")
-                
-                last_volume_check = current_time
+                            if df is not None:
+                                df = calculate_volume_usdt(df)
+                                chart_path = build_volume_alert_chart(df, s)
+                                
+                                send_alert_chart(
+                                    chat_id=ADMIN_CHAT_ID,
+                                    symbol=s,
+                                    timeframe="1h",
+                                    chart_path=chart_path,
+                                    price=alert_data["current_price"],
+                                    reason=msg
+                                )
+                                
+                                logger.info(f"Volume alert sent: {s}")
+                        
+                        time.sleep(0.5)  # Затримка між токенами
 
-            # ✅ ОЧИЩЕННЯ БД (раз на добу)
-            if current_time - last_cleanup >= 86400:  # 24 години
-                logger.info("Starting database cleanup...")
-                try:
-                    deleted = cleanup_old_data(conn, days_to_keep=30)
-                    logger.info(f"Database cleanup finished: {deleted} rows deleted")
-                except Exception as e:
-                    logger.error(f"Database cleanup error: {e}")
-                
-                last_cleanup = current_time
+            # ===== 5. ОЧИЩЕННЯ БД (раз на добу, о 03:00) =====
+            if current_datetime.hour == 3 and current_minute == 0:
+                if not hasattr(main, 'last_cleanup_day') or main.last_cleanup_day != current_datetime.day:
+                    main.last_cleanup_day = current_datetime.day
+                    
+                    logger.info("Starting database cleanup...")
+                    try:
+                        deleted = cleanup_old_data(conn, days_to_keep=30)
+                        logger.info(f"Database cleanup finished: {deleted} rows deleted")
+                    except Exception as e:
+                        logger.error(f"Database cleanup error: {e}")
+            
+            # Невелика затримка між ітераціями
+            time.sleep(0.1)
 
         except Exception:
             logger.exception("Main loop error")
+            time.sleep(5)
 
 
 if __name__ == "__main__":

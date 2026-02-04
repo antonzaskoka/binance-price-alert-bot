@@ -50,6 +50,22 @@ def build_menu_chart(df, symbol, timeframe, detected_level=None, custom_price=No
     for lvl in visible_levels:
         ax_price.axhline(lvl, color="blue", linestyle="--", linewidth=1)
 
+    # ✅ Додаємо вертикальні лінії кожні 15 барів
+    total_bars = len(df)
+    for i in range(total_bars - 1, -1, -15):
+        ax_price.axvline(x=i, color="gray", linestyle=":", linewidth=0.5, alpha=0.3)
+    
+    # ✅ Додаємо тікер на графік
+    ax_price.text(
+        0.02, 0.98, symbol,
+        transform=ax_price.transAxes,
+        fontsize=16,
+        fontweight="bold",
+        verticalalignment="top",
+        color="white",
+        bbox=dict(boxstyle="round,pad=0.5", facecolor="black", alpha=0.7)
+    )
+
     # Виявлений рівень (зелена лінія)
     if detected_level:
         level_price = detected_level['level']
