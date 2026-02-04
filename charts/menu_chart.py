@@ -55,18 +55,20 @@ def build_menu_chart(df, symbol, timeframe, detected_level=None, custom_price=No
     for i in range(total_bars - 1, -1, -15):
         ax_price.axvline(x=i, color="gray", linestyle=":", linewidth=0.5, alpha=0.3)
     
-    # ✅ Додаємо тікер на графік
+    # ✅ Тікер ЛІВОРУЧ вгорі
     ax_price.text(
         0.02, 0.98, symbol,
         transform=ax_price.transAxes,
         fontsize=16,
         fontweight="bold",
         verticalalignment="top",
+        horizontalalignment="left",
         color="white",
         bbox=dict(boxstyle="round,pad=0.5", facecolor="black", alpha=0.7)
     )
 
     # Виявлений рівень (зелена лінія)
+    detected_level_price = None
     if detected_level:
         level_price = detected_level['level']
         if y_min <= level_price <= y_max:
@@ -77,6 +79,7 @@ def build_menu_chart(df, symbol, timeframe, detected_level=None, custom_price=No
                 linewidth=2
             )
             visible_levels.append(level_price)
+            detected_level_price = level_price
 
     # ✅ Custom price (пурпурова лінія)
     if custom_price is not None:
@@ -88,16 +91,34 @@ def build_menu_chart(df, symbol, timeframe, detected_level=None, custom_price=No
         )
         visible_levels.append(custom_price)
 
-    # ✅ Підпис всіх рівнів вгорі
-    if visible_levels:
-        visible_levels_sorted = sorted(set(visible_levels))
-        levels_text = ", ".join([f"{lvl:.2f}" for lvl in visible_levels_sorted])
-        ax_price.text(
-            0.02, 0.98, f"Levels: {levels_text}",
-            transform=ax_price.transAxes,
-            fontsize=8, verticalalignment='top',
-            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-        )
+    # ✅ Рівні ПРАВОРУЧ вгорі (2 рядки)
+    if visible_levels or detected_level_price:
+        # Рядок 1: Рівні з файлу
+        file_levels = [lvl for lvl in visible_levels if lvl != detected_level_price and lvl != custom_price]
+        if file_levels:
+            file_levels_sorted = sorted(set(file_levels))
+            file_levels_text = ", ".join([f"{lvl:.2f}" for lvl in file_levels_sorted])
+            
+            ax_price.text(
+                0.98, 0.98, f"Levels: {file_levels_text}",
+                transform=ax_price.transAxes,
+                fontsize=8,
+                verticalalignment='top',
+                horizontalalignment='right',
+                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.6)
+            )
+        
+        # Рядок 2: Виявлений рівень
+        y_offset = 0.05 if file_levels else 0
+        if detected_level_price:
+            ax_price.text(
+                0.98, 0.98 - y_offset, f"Detected: {detected_level_price:.2f}",
+                transform=ax_price.transAxes,
+                fontsize=8,
+                verticalalignment='top',
+                horizontalalignment='right',
+                bbox=dict(boxstyle='round', facecolor='lightgreen', alpha=0.6)
+            )
 
     ax_price.set_ylabel("Price")
     ax_price.grid(True, alpha=0.3)

@@ -50,28 +50,33 @@ def build_alert_chart(df, symbol, levels=None):
     
     # ✅ Додаємо вертикальні лінії кожні 15 хвилин
     total_bars = len(df)
-    for i in range(total_bars - 1, -1, -15):  # Кожні 15 барів від кінця
+    for i in range(total_bars - 1, -1, -15):
         ax_price.axvline(x=i, color="gray", linestyle=":", linewidth=0.5, alpha=0.3)
     
-    # ✅ Додаємо тікер на графік
+    # ✅ Тікер ЛІВОРУЧ вгорі
     ax_price.text(
         0.02, 0.98, symbol,
         transform=ax_price.transAxes,
         fontsize=16,
         fontweight="bold",
         verticalalignment="top",
+        horizontalalignment="left",
         color="white",
         bbox=dict(boxstyle="round,pad=0.5", facecolor="black", alpha=0.7)
     )
 
-    # ✅ Підпис рівнів вгорі
+    # ✅ Рівні ПРАВОРУЧ вгорі
     if visible_levels:
-        levels_text = ", ".join([f"{lvl:.2f}" for lvl in visible_levels])
+        levels_sorted = sorted(set(visible_levels))
+        levels_text = ", ".join([f"{lvl:.2f}" for lvl in levels_sorted])
+        
         ax_price.text(
-            0.02, 0.98, f"Levels: {levels_text}",
+            0.98, 0.98, f"Levels: {levels_text}",
             transform=ax_price.transAxes,
-            fontsize=8, verticalalignment='top',
-            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+            fontsize=8,
+            verticalalignment='top',
+            horizontalalignment='right',
+            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.6)
         )
 
     ax_price.set_ylabel("Price")

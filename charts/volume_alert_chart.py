@@ -61,19 +61,21 @@ def build_volume_alert_chart(df, symbol):
     for i in range(total_bars - 1, -1, -15):
         ax_price.axvline(x=i, color="gray", linestyle=":", linewidth=0.5, alpha=0.3)
     
-    # ✅ Додаємо тікер на графік
+    # ✅ Тікер ЛІВОРУЧ вгорі
     ax_price.text(
         0.02, 0.98, symbol,
         transform=ax_price.transAxes,
         fontsize=16,
         fontweight="bold",
         verticalalignment="top",
+        horizontalalignment="left",
         color="white",
         bbox=dict(boxstyle="round,pad=0.5", facecolor="black", alpha=0.7)
     )
 
     # ✅ Автовиявлений рівень (зелена лінія)
     detected_level = detect_support_resistance(df, tolerance_pct=0.0001)
+    detected_level_price = None
     
     if detected_level:
         level_price = detected_level['level']
@@ -82,21 +84,37 @@ def build_volume_alert_chart(df, symbol):
                 level_price,
                 color="limegreen",
                 linestyle="--",
-                linewidth=2,
-                label=f"Detected: {level_price:.2f}"
+                linewidth=2
             )
-            visible_levels.append(level_price)
+            detected_level_price = level_price
 
-    # ✅ Підпис рівнів вгорі
-    if visible_levels:
-        visible_levels_sorted = sorted(set(visible_levels))
-        levels_text = ", ".join([f"{lvl:.2f}" for lvl in visible_levels_sorted])
-        ax_price.text(
-            0.02, 0.98, f"Levels: {levels_text}",
-            transform=ax_price.transAxes,
-            fontsize=9, verticalalignment='top',
-            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.6)
-        )
+    # ✅ Рівні ПРАВОРУЧ вгорі (2 рядки)
+    if visible_levels or detected_level_price:
+        # Рядок 1: Рівні з файлу
+        if visible_levels:
+            levels_sorted = sorted(set(visible_levels))
+            levels_text = ", ".join([f"{lvl:.2f}" for lvl in levels_sorted])
+            
+            ax_price.text(
+                0.98, 0.98, f"Levels: {levels_text}",
+                transform=ax_price.transAxes,
+                fontsize=9,
+                verticalalignment='top',
+                horizontalalignment='right',
+                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.6)
+            )
+        
+        # Рядок 2: Виявлений рівень
+        y_offset = 0.05 if visible_levels else 0
+        if detected_level_price:
+            ax_price.text(
+                0.98, 0.98 - y_offset, f"Detected: {detected_level_price:.2f}",
+                transform=ax_price.transAxes,
+                fontsize=9,
+                verticalalignment='top',
+                horizontalalignment='right',
+                bbox=dict(boxstyle='round', facecolor='lightgreen', alpha=0.6)
+            )
 
     ax_price.set_ylabel("Price (USDT)", fontsize=10)
     ax_price.grid(True, alpha=0.3)
