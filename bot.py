@@ -360,48 +360,6 @@ def main():
             for update in updates:
                 handle_update(update, conn)
 
-<<<<<<< HEAD
-            # 2. КОНТРОЛЬ ЧАСУ ЗАВАНТАЖЕННЯ ДАНИХ
-            current_time = time.time()
-            
-            # Відкриваємо вікно синхронізації кожні 60 секунд на 20 секунд
-            if current_time - last_data_sync >= data_sync_cooldown:
-                is_syncing = True
-                sync_start_time = current_time
-                last_data_sync = current_time
-                logger.info("Data sync window opened (20s)")
-            
-            # Закриваємо вікно після 20 секунд
-            if is_syncing and (current_time - sync_start_time) >= data_sync_duration:
-                is_syncing = False
-                logger.info("Data sync window closed")
-
-            # 3. ПЕРЕВІРЯЄМО АЛЕРТИ ТІЛЬКИ РАЗ НА ХВИЛИНУ
-            if current_time - last_alert_check >= 60:
-                refresh_symbols()
-
-                lm._LEVELS_CACHE = {}
-                lm._LEVELS_MTIME = None
-
-                levels_map = load_levels()
-
-                all_symbols = set(SYMBOLS.keys()) | set(levels_map.keys())
-
-                # ✅ ОНОВЛЕНО: Синхронізуємо дані тільки якщо is_syncing=True
-                if is_syncing:
-                    for s in all_symbols:
-                        ensure_tables(conn, s)
-
-                        added = sync_klines(conn, s)
-                        if added:
-                            logger.info(f"{s}: synced {added} rows")
-                        
-                        # Синхронізуємо тільки 1 токен за ітерацію
-                        break
-                
-                # ✅ Перевірка алертів працює ЗАВЖДИ (навіть без синхронізації)
-                for s in all_symbols:
-=======
             # ===== 2. ХВИЛИННІ БАРИ ДЛЯ SYMBOLS.JSON (щохвилини) =====
             if current_time - last_alert_check >= 60:
                 refresh_symbols()
@@ -415,7 +373,6 @@ def main():
                         logger.info(f"{s}: synced {added} 1m bars")
                     
                     # Перевіряємо threshold alerts
->>>>>>> temp-fix
                     check_alerts(conn, s, ADMIN_CHAT_ID)
                 
                 last_alert_check = current_time
@@ -454,9 +411,6 @@ def main():
                     
                     logger.info(f"Loading hourly bars for volume alerts (hour {current_datetime.hour})")
                     
-<<<<<<< HEAD
-                last_volume_check = current_time
-=======
                     # Оновлюємо список токенів з Binance кожні 6 годин
                     if current_time - last_markets_update >= 21600:
                         binance_symbols = fetch_all_usdt_symbols()
@@ -500,7 +454,6 @@ def main():
                                 logger.info(f"Volume alert sent: {s}")
                         
                         time.sleep(0.5)  # Затримка між токенами
->>>>>>> temp-fix
 
             # ===== 5. ОЧИЩЕННЯ БД (раз на добу, о 03:00) =====
             if current_datetime.hour == 3 and current_minute == 0:
