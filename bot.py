@@ -228,37 +228,49 @@ def handle_update(update, conn):
         return
 
     if text == "/backup":
-        import json
-        import os
-        from config import LEVELS_FILE, SYMBOLS_FILE
-        
         try:
-            msg = "📦 <b>Backup даних:</b>\n\n"
+            # Читаємо levels.json
+            with open("levels.json", "r") as f:
+                levels_content = f.read()
             
-            # Levels
-            if os.path.exists(LEVELS_FILE):
-                with open(LEVELS_FILE, "r", encoding="utf-8") as f:
-                    levels_data = json.load(f)
-                msg += f"<b>levels.json</b> ({len(levels_data)} токенів):\n"
-                msg += f"<pre>{json.dumps(levels_data, indent=2, ensure_ascii=False)}</pre>\n\n"
+            # Читаємо symbols.json
+            with open("symbols.json", "r") as f:
+                symbols_content = f.read()
+            
+            # Формуємо повідомлення
+            full_msg = (
+                f"📋 <b>BACKUP</b>\n\n"
+                f"<b>levels.json:</b>\n<pre>{levels_content}</pre>\n\n"
+                f"<b>symbols.json:</b>\n<pre>{symbols_content}</pre>"
+            )
+            
+            # Розбиваємо на частини по 4000 символів (безпечний ліміт)
+            max_length = 4000
+            
+            if len(full_msg) <= max_length:
+                send_telegram_message(chat_id, full_msg)
             else:
-                msg += "<b>levels.json</b>: файл не знайдено\n\n"
-            
-            # Symbols
-            if os.path.exists(SYMBOLS_FILE):
-                with open(SYMBOLS_FILE, "r", encoding="utf-8") as f:
-                    symbols_data = json.load(f)
-                msg += f"<b>symbols.json</b> ({len(symbols_data)} токенів):\n"
-                msg += f"<pre>{json.dumps(symbols_data, indent=2, ensure_ascii=False)}</pre>"
-            else:
-                msg += "<b>symbols.json</b>: файл не знайдено"
-            
-            send_telegram_message(chat_id, msg)
-            logger.info(f"/backup command executed for chat {chat_id}")
+                # Відправляємо окремо levels.json
+                levels_msg = f"📋 <b>levels.json:</b>\n<pre>{levels_content}</pre>"
+                
+                if len(levels_msg) <= max_length:
+                    send_telegram_message(chat_id, levels_msg)
+                else:
+                    # Розбиваємо levels на частини
+                    chunks = [levels_content[i:i+3800] for i in range(0, len(levels_content), 3800)]
+                    for i, chunk in enumerate(chunks, 1):
+                        send_telegram_message(
+                            chat_id, 
+                            f"📋 <b>levels.json (частина {i}/{len(chunks)}):</b>\n<pre>{chunk}</pre>"
+                        )
+                
+                # Відправляємо symbols.json
+                symbols_msg = f"📋 <b>symbols.json:</b>\n<pre>{symbols_content}</pre>"
+                send_telegram_message(chat_id, symbols_msg)
             
         except Exception as e:
-            logger.error(f"/backup error: {e}")
-            send_telegram_message(chat_id, f"❌ Помилка при отриманні backup: {e}")
+            logger.exception("Backup error")
+            send_telegram_message(chat_id, f"❌ Помилка backup: {e}")
         
         return
 
@@ -310,6 +322,17 @@ def main():
     for s in SYMBOLS:
         ensure_tables(conn, s)
 
+    # таймери для контролю часу
+    last_alert_check = 0
+    last_volume_check = 0
+    last_cleanup = 0
+    last_data_sync = 0  # Новий таймер для синхронізації даних
+    
+    # Змінні для контролю завантаження
+    data_sync_duration = 20  # Завантажуємо дані 20 секунд
+    data_sync_cooldown = 60  # Раз на хвилину
+    is_syncing = False
+
     # Динамічне оновлення SYMBOLS при зміні файлу
     def refresh_symbols():
         """Перезавантажує список токенів"""
@@ -333,9 +356,22 @@ def main():
             for update in updates:
                 handle_update(update, conn)
 
-            # 2. ПЕРЕВІРЯЄМО АЛЕРТИ ТІЛЬКИ РАЗ НА ХВИЛИНУ
+            # 2. КОНТРОЛЬ ЧАСУ ЗАВАНТАЖЕННЯ ДАНИХ
             current_time = time.time()
+            
+            # Відкриваємо вікно синхронізації кожні 60 секунд на 20 секунд
+            if current_time - last_data_sync >= data_sync_cooldown:
+                is_syncing = True
+                sync_start_time = current_time
+                last_data_sync = current_time
+                logger.info("Data sync window opened (20s)")
+            
+            # Закриваємо вікно після 20 секунд
+            if is_syncing and (current_time - sync_start_time) >= data_sync_duration:
+                is_syncing = False
+                logger.info("Data sync window closed")
 
+            # 3. ПЕРЕВІРЯЄМО АЛЕРТИ ТІЛЬКИ РАЗ НА ХВИЛИНУ
             if current_time - last_alert_check >= 60:
                 refresh_symbols()
 
@@ -346,13 +382,20 @@ def main():
 
                 all_symbols = set(SYMBOLS.keys()) | set(levels_map.keys())
 
+                # ✅ ОНОВЛЕНО: Синхронізуємо дані тільки якщо is_syncing=True
+                if is_syncing:
+                    for s in all_symbols:
+                        ensure_tables(conn, s)
+
+                        added = sync_klines(conn, s)
+                        if added:
+                            logger.info(f"{s}: synced {added} rows")
+                        
+                        # Синхронізуємо тільки 1 токен за ітерацію
+                        break
+                
+                # ✅ Перевірка алертів працює ЗАВЖДИ (навіть без синхронізації)
                 for s in all_symbols:
-                    ensure_tables(conn, s)
-
-                    added = sync_klines(conn, s)
-                    if added:
-                        logger.info(f"{s}: synced {added} rows")
-
                     check_alerts(conn, s, ADMIN_CHAT_ID)
 
                 last_alert_check = current_time
@@ -410,40 +453,6 @@ def main():
                     # ✅ ЗАТРИМКА між токенами (захист від rate limit)
                     time.sleep(0.5)  # 500мс між токенами
                     
-                    cfg = SYMBOLS.get(s)
-                    if not cfg:
-                        continue
-                    
-                    # Синхронізуємо годинні дані
-                    added_hourly = sync_hourly_klines(conn, s)
-                    if added_hourly:
-                        logger.info(f"{s}: synced {added_hourly} hourly bars")
-                    
-                    # Перевіряємо volume alert
-                    alert_data = check_volume_alert(conn, s, cfg)
-                    
-                    if alert_data:
-                        msg = format_volume_alert(alert_data)
-                        
-                        # Будуємо графік
-                        df = load_hourly_bars(conn, s, limit=90)
-                        
-                        if df is not None:
-                            df = calculate_volume_usdt(df)
-                            
-                            chart_path = build_volume_alert_chart(df, s)
-                            
-                            send_alert_chart(
-                                chat_id=ADMIN_CHAT_ID,
-                                symbol=s,
-                                timeframe="1h",
-                                chart_path=chart_path,
-                                price=alert_data["current_price"],
-                                reason=msg
-                            )
-                            
-                            logger.info(f"Volume alert sent: {s}")
-                
                 last_volume_check = current_time
 
             # ✅ ОЧИЩЕННЯ БД (раз на добу)

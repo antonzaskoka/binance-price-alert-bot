@@ -124,7 +124,7 @@ def sync_klines(conn, symbol):
 def sync_hourly_klines(conn, symbol):
     """
     Синхронізує годинні бари (1h) для volume alerts
-    Завантажує останні 400 годин (~17 днів)
+    Завантажує останні 750 годин (~31 днів)
     """
     table_name = f"kline_{symbol.lower()}_1h"
     
@@ -150,8 +150,8 @@ def sync_hourly_klines(conn, symbol):
     if last_ms:
         start_time = last_ms + 3600000  # +1 година
     else:
-        # Перше завантаження: 400 годин назад
-        start_time = int((datetime.now().timestamp() - 400 * 3600) * 1000)
+        # Перше завантаження: 750 годин назад
+        start_time = int((datetime.now().timestamp() - 750 * 3600) * 1000)
     
     end_time = int(datetime.now().timestamp() * 1000)
     
