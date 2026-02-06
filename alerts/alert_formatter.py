@@ -88,7 +88,8 @@ def format_threshold_alert(alert_data, df):
     threshold_value = cfg[f"{threshold_name.lower()}_threshold"]
     # Формуємо повідомлення
     msg = (
-        f"🔥🚨💥 <b>{symbol}</b>\n"
+        f"<b>{symbol}</b>\n\n"
+        f"🔥🚨💥</b>\n"
         f"🕒 {datetime.now().strftime('%H:%M:%S')}\n\n"
         f"{alert_label} Alert ({minutes}m - {threshold_value}%): <b>{pct:.2f}%</b>\n\n"
         f"💰 Price (last bar open): <b>${price:.4f}</b>\n"
@@ -163,7 +164,8 @@ def format_level_touch_alert(alert_data, df):
     valid_levels = filter_levels_for_range(levels, price, 0.05)  # ±5%
 
     msg = (
-        f"✅📊✅ <b>{symbol}</b> — LEVEL ALERT\n"
+        f"<b>{symbol}</b> — LEVEL ALERT\n\n"
+        f"✅📊✅ ✅📊✅ ✅📊✅\n"
         f"🕒 {datetime.now().strftime('%H:%M:%S')}\n\n"
         f"{action} level: <b>{touched_level:.4f}</b>\n\n"
         f"💰 Price (last bar open): <b>{price:.4f}</b>\n\n"
