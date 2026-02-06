@@ -555,12 +555,24 @@ def handle_text(chat_id, text, send):
         )
         return
 
-    # ---- EDIT SYMBOL: PARAMS ----
+# ---- EDIT SYMBOL: PARAMS ----
     if step == "symbol_edit_params":
+        # ✅ ДОДАНО: Перевірка кнопки "Назад" ПЕРШОЮ
+        if text == "⬅️ Назад":
+            symbol = user_state[chat_id].get("symbol")
+            user_state[chat_id] = {"step": "symbols_menu"}
+            
+            send(
+                chat_id,
+                "⚙️ Параметри токенів",
+                reply_markup=symbols_menu()
+            )
+            return
+        
         try:
             value = float(text)
         except ValueError:
-            send(chat_id, "❌ Некоректне значення, введи число")
+            send(chat_id, "❌ Некоректне значення, введи число", reply_markup=back_menu())
             return
 
         symbol = user_state[chat_id]["symbol"]
@@ -583,7 +595,7 @@ def handle_text(chat_id, text, send):
         if current_index < len(param_order) - 1:
             next_param, next_name = param_order[current_index + 1]
             user_state[chat_id]["current_param"] = next_param
-            send(chat_id, f"Введи нове значення для <b>{next_name}</b> ({params[next_param]}):")
+            send(chat_id, f"Введи нове значення для <b>{next_name}</b> ({params[next_param]}):", reply_markup=back_menu())
         else:
             update_symbol(symbol, params)
 

@@ -163,7 +163,7 @@ def format_level_touch_alert(alert_data, df):
     valid_levels = filter_levels_for_range(levels, price, 0.05)  # ±5%
 
     msg = (
-        f"➡️📊🎯 <b>{symbol}</b> — LEVEL ALERT\n"
+        f"✅📊✅ <b>{symbol}</b> — LEVEL ALERT\n"
         f"🕒 {datetime.now().strftime('%H:%M:%S')}\n\n"
         f"{action} level: <b>{touched_level:.4f}</b>\n\n"
         f"💰 Price (last bar open): <b>{price:.4f}</b>\n\n"
