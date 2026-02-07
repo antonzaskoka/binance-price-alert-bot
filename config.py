@@ -32,7 +32,7 @@ os.makedirs(DATA_DIR, exist_ok=True)
 # Файли даних у Volume
 LEVELS_FILE = os.path.join(DATA_DIR, "levels.json")
 SYMBOLS_FILE = os.path.join(DATA_DIR, "symbols.json")
-DB_FILE = os.path.join(DATA_DIR, "binance_bot.db")
+DB_PATH = os.path.join(DATA_DIR, "binance_bot.db")
 
 # Ініціалізація файлів з шаблонів якщо не існують
 def init_data_files():
