@@ -95,6 +95,46 @@ def handle_text(chat_id, text, send):
                 send(chat_id, "⚠️ Немає токенів з рівнями", reply_markup=main_menu())
             return
 
+    # ---- SELECT SYMBOL (з кнопок або вручну) ----
+    if step == "select_symbol":
+        if text == "⬅️ Назад":
+            show_main_menu(chat_id, send)
+            return
+
+        # Парсинг: "BTCUSDT" з кнопки або "btc" / "btc, 81050" вручну
+        custom_price = None
+        
+        if ',' in text:
+            parts = text.split(',')
+            symbol_text = parts[0].strip()
+            try:
+                custom_price = float(parts[1].strip())
+            except:
+                pass
+        elif ' ' in text:
+            parts = text.split()
+            symbol_text = parts[0].strip()
+            if len(parts) > 1:
+                try:
+                    custom_price = float(parts[1].strip())
+                except:
+                    pass
+        else:
+            symbol_text = text.strip()
+
+        symbol = normalize_symbol(symbol_text)
+
+        user_state[chat_id]["symbol"] = symbol
+        user_state[chat_id]["custom_price"] = custom_price
+        user_state[chat_id]["step"] = "select_tf"
+
+        send(
+            chat_id,
+            f"⏱ Обери таймфрейм для <b>{symbol}</b>",
+            reply_markup=timeframe_menu()
+        )
+        return
+
     # ---- ENTER SYMBOL ----
     if step == "enter_symbol":
         if text == "⬅️ Назад":
