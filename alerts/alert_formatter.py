@@ -89,7 +89,7 @@ def format_threshold_alert(alert_data, df):
     # Формуємо повідомлення
     msg = (
         f"<b>{symbol}</b>\n\n"
-        f"🔥🚨💥</b>\n"
+        f"🔥🚨💥🔥🚨💥🔥🚨💥</b>\n"
         f"🕒 {datetime.now().strftime('%H:%M:%S')}\n\n"
         f"{alert_label} Alert ({minutes}m - {threshold_value}%): <b>{pct:.2f}%</b>\n\n"
         f"💰 Price (last bar open): <b>${price:.4f}</b>\n"

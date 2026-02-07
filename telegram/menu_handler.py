@@ -49,7 +49,7 @@ def handle_text(chat_id, text, send):
                 send(
                     chat_id,
                     "📊 Обери токен або введи назву (наприклад btc + лінія на 81050):",
-                    reply_markup=dynamic_keyboard_three_columns(PINNED_SYMBOLS)
+                    reply_markup=dynamic_levels_keyboard_three_columns(PINNED_SYMBOLS)
                 )
                 return
 
