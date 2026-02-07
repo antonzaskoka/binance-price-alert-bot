@@ -10,6 +10,8 @@ from alerts.alert_types import check_threshold_alert, check_level_touch_alert
 from alerts.alert_formatter import format_threshold_alert, format_level_touch_alert
 from charts.alert_chart import build_alert_chart
 from telegram.client import send_alert_chart
+from alerts.level_proximity import was_near_level  # ✅ ДОДАНО
+from alerts.levels_manager import load_levels  # ✅ ДОДАНО
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +34,22 @@ def check_alerts(conn, symbol, admin_chat_id):
             
             # Cooldown 30 хвилин
             if not can_alert(conn, symbol, alert_type, 30):
+                continue
+
+            # ✅ ДОДАНО: Перевірка близькості до рівнів
+            # Завантажуємо дані за період руху (minutes барів)
+            df_period = load_last_bars(conn, symbol, minutes)
+            
+            if df_period is None or len(df_period) == 0:
+                continue
+            
+            # Рівні для токена
+            levels_map = load_levels()
+            symbol_levels = levels_map.get(symbol, [])
+            
+            # Фільтр: алерт тільки якщо ціна була біля рівня
+            if symbol_levels and not was_near_level(df_period, symbol_levels):
+                logger.debug(f"Skipping {symbol} {threshold_name} alert: price was not near any level")
                 continue
 
             # Завантажуємо df для ATR і графіка

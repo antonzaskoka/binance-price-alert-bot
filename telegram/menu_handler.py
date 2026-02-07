@@ -41,16 +41,17 @@ def handle_text(chat_id, text, send):
     # ---- MAIN MENU ----
     if step == "main":
         if text == "📊 Подивитися котирування":
-            user_state[chat_id]["step"] = "enter_symbol"
-            send(
-                chat_id,
-                "✍️ Введи назву токена або токен + ціну\n\n"
-                "Приклади:\n"
-                "• <code>btc</code> — графік BTCUSDT\n"
-                "• <code>btc, 81050</code> — графік + лінія на 81050",
-                reply_markup=back_menu()
-            )
-            return
+                user_state[chat_id] = {"step": "select_symbol"}
+                
+                # ✅ ЗМІНЕНО: Показуємо тільки топ-6 токенів кнопками
+                from telegram.keyboards import PINNED_SYMBOLS
+                
+                send(
+                    chat_id,
+                    "📊 Обери токен або введи назву (наприклад btc + лінія на 81050):",
+                    reply_markup=dynamic_keyboard_three_columns(PINNED_SYMBOLS)
+                )
+                return
 
         if text == "✏️ Виправити рівні":
             user_state[chat_id] = {"step": "levels_menu"}

@@ -16,31 +16,33 @@ ADMIN_CHAT_ID = 1671163907
 # ==============================
 # PATHS
 # ==============================
-import os
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "database.db")
-LEVELS_FILE = os.path.join(BASE_DIR, "levels.json")
-SYMBOLS_FILE = os.path.join(BASE_DIR, "symbols.json")
+# ✅ Папка для даних (персистентна в Railway Volume)
+DATA_DIR = os.getenv("DATA_DIR", "/app/data")
+# Створюємо папку якщо не існує
+os.makedirs(DATA_DIR, exist_ok=True)
+# Файли даних у Volume
+LEVELS_FILE = os.path.join(DATA_DIR, "levels.json")
+SYMBOLS_FILE = os.path.join(DATA_DIR, "symbols.json")
+DB_FILE = os.path.join(DATA_DIR, "binance_bot.db")
+
 # Ініціалізація файлів з шаблонів якщо не існують
 def init_data_files():
-    """Створює levels.json та symbols.json з шаблонів якщо їх немає"""
-    import shutil
+    """Створює levels.json та symbols.json з templates якщо не існують"""
+    # ✅ Template файли в корені проекту
+    levels_example = "/app/levels.json.example"
+    symbols_example = "/app/symbols.json.example"
     
-    levels_example = os.path.join(BASE_DIR, "levels.json.example")
-    symbols_example = os.path.join(BASE_DIR, "symbols.json.example")
-    
+    # ✅ Реальні файли у Volume /app/data
     if not os.path.exists(LEVELS_FILE) and os.path.exists(levels_example):
         shutil.copy(levels_example, LEVELS_FILE)
-        print(f"Created {LEVELS_FILE} from template")
+        logger.info(f"Created {LEVELS_FILE} from template")
     
     if not os.path.exists(SYMBOLS_FILE) and os.path.exists(symbols_example):
         shutil.copy(symbols_example, SYMBOLS_FILE)
-        print(f"Created {SYMBOLS_FILE} from template")
-
+        logger.info(f"Created {SYMBOLS_FILE} from template")
 init_data_files()
 
-CHART_DIR = os.path.join(BASE_DIR, "charts")
-
+CHART_DIR = os.path.join(DATA_DIR, "charts_output")
 os.makedirs(CHART_DIR, exist_ok=True)
 
 # ==============================
@@ -113,3 +115,7 @@ BINANCE_INTERVAL_MAP = {
 
 # Volume alerts
 VOLUME_CHECK_INTERVAL = 3600  # Перевірка кожну годину (секунди)
+
+# ===== ФІЛЬТР АЛЕРТІВ: БЛИЗЬКІСТЬ ДО РІВНІВ =====
+# Алерт надсилається тільки якщо ціна була біля рівня ±LEVEL_PROXIMITY_PCT%
+LEVEL_PROXIMITY_PCT = 0.1  # 0.1% = діапазон ±0.1% від рівня
