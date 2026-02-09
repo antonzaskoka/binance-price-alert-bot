@@ -59,7 +59,7 @@ def build_volume_alert_chart(df, symbol):
     # ✅ Додаємо вертикальні лінії кожні 15 барів
     total_bars = len(df)
     for i in range(total_bars - 1, -1, -15):
-        ax_price.axvline(x=i, color="black", linestyle=":", linewidth=0.5, alpha=0.3)
+        ax_price.axvline(x=i, color="black", linestyle=":", linewidth=0.5, alpha=0.9)
     
     # ✅ Тікер ЛІВОРУЧ вгорі
     ax_price.text(
