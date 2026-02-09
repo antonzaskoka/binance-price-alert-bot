@@ -32,9 +32,9 @@ def check_alerts(conn, symbol, admin_chat_id):
         if alert_data:
             alert_type = f"threshold_{threshold_name}"
             
-            # Cooldown 30 хвилин
-            if not can_alert(conn, symbol, alert_type, 30):
-                logger.info(f"BLOCKED by cooldown: {symbol} {threshold_name} (30 min cooldown)")
+            # Cooldown 15 хвилин
+            if not can_alert(conn, symbol, alert_type, 15):
+                logger.info(f"BLOCKED by cooldown: {symbol} {threshold_name} (15 min cooldown)")
                 continue
 
             # ✅ ДОДАНО: Перевірка близькості до рівнів

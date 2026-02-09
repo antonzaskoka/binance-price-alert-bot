@@ -275,6 +275,36 @@ def handle_update(update, conn):
         
         return
 
+        if text == "/cooldowns":
+            try:
+                from database.db_manager import get_conn
+                conn = get_conn()
+                
+                cursor = conn.execute(
+                    """
+                    SELECT symbol, alert_type, triggered_at_utc 
+                    FROM alerts 
+                    ORDER BY triggered_at_utc DESC 
+                    LIMIT 20
+                    """
+                )
+                
+                rows = cursor.fetchall()
+                
+                if rows:
+                    msg = "📋 <b>Останні 20 алертів:</b>\n\n"
+                    for symbol, alert_type, triggered_at in rows:
+                        msg += f"• {symbol} - <code>{alert_type}</code>\n  {triggered_at}\n\n"
+                else:
+                    msg = "⚠️ Немає записів в базі алертів"
+                
+                send_telegram_message(chat_id, msg)
+            except Exception as e:
+                logger.exception("Cooldowns error")
+                send_telegram_message(chat_id, f"❌ Помилка: {e}")
+            
+            return
+
     handle_text(
         chat_id,
         text,
