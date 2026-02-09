@@ -41,15 +41,36 @@ def check_alerts(conn, symbol, admin_chat_id):
             df_period = load_last_bars(conn, symbol, minutes)
             
             if df_period is None or len(df_period) == 0:
+                logger.debug(f"Skipping {symbol} {threshold_name}: no data for period check")
                 continue
             
             # Рівні для токена
             levels_map = load_levels()
             symbol_levels = levels_map.get(symbol, [])
             
-            # Фільтр: алерт тільки якщо ціна була біля рівня
-            if symbol_levels and not was_near_level(df_period, symbol_levels):
-                logger.debug(f"Skipping {symbol} {threshold_name} alert: price was not near any level")
+            # ✅ ДЕТАЛЬНЕ ЛОГУВАННЯ
+            if symbol_levels:
+                min_price = df_period["low"].min()
+                max_price = df_period["high"].max()
+                
+                logger.info(
+                    f"{symbol} {threshold_name} alert candidate: "
+                    f"price range [{min_price:.2f} - {max_price:.2f}], "
+                    f"levels: {symbol_levels}"
+                )
+                
+                # Фільтр: алерт тільки якщо ціна була біля рівня
+                if not was_near_level(df_period, symbol_levels):
+                    logger.warning(
+                        f"BLOCKED by proximity filter: {symbol} {threshold_name} - "
+                        f"price was not near any level"
+                    )
+                    continue
+                else:
+                    logger.info(f"PASSED proximity filter: {symbol} {threshold_name}")
+            else:
+                # ✅ ЯКЩО НЕМАЄ РІВНІВ - ПРОПУСКАЄМО АЛЕРТ
+                logger.warning(f"BLOCKED: {symbol} {threshold_name} - no levels defined in levels.json")
                 continue
 
             # Завантажуємо df для ATR і графіка

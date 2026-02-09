@@ -1,7 +1,10 @@
 """
 Перевірка близькості ціни до рівнів
 """
+import logging
 from config import LEVEL_PROXIMITY_PCT
+
+logger = logging.getLogger(__name__)
 
 
 def was_near_level(df, levels):
@@ -22,6 +25,9 @@ def was_near_level(df, levels):
     # Діапазон руху ціни за період
     min_price = df["low"].min()
     max_price = df["high"].max()
+
+    # ✅ ЛОГУВАННЯ
+    logger.debug(f"Proximity check: price range [{min_price:.2f} - {max_price:.2f}]")
     
     # Перевіряємо кожен рівень
     for level in levels:
@@ -35,4 +41,5 @@ def was_near_level(df, levels):
         if max_price >= level_min and min_price <= level_max:
             return True
     
+    logger.debug("No levels matched")
     return False

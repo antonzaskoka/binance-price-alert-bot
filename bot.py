@@ -29,6 +29,7 @@ from alerts.levels_manager import load_levels
 import alerts.levels_manager as lm
 from config import SYMBOLS, ADMIN_CHAT_ID, ALIVE_INTERVAL, RISK_USDT
 from config import VOLUME_CHECK_INTERVAL
+from config import LEVELS_FILE, SYMBOLS_FILE
 from charts.menu_chart import build_menu_chart
 from charts.level_detector import detect_support_resistance, format_detected_level_info
 from charts.volume_alert_chart import build_volume_alert_chart
@@ -230,11 +231,11 @@ def handle_update(update, conn):
     if text == "/backup":
         try:
             # Читаємо levels.json
-            with open("levels.json", "r") as f:
+            with open(LEVELS_FILE, "r") as f:
                 levels_content = f.read()
             
             # Читаємо symbols.json
-            with open("symbols.json", "r") as f:
+            with open(SYMBOLS_FILE, "r") as f:
                 symbols_content = f.read()
             
             # Формуємо повідомлення
