@@ -34,6 +34,7 @@ def check_alerts(conn, symbol, admin_chat_id):
             
             # Cooldown 30 хвилин
             if not can_alert(conn, symbol, alert_type, 30):
+                logger.info(f"BLOCKED by cooldown: {symbol} {threshold_name} (30 min cooldown)")
                 continue
 
             # ✅ ДОДАНО: Перевірка близькості до рівнів
@@ -76,6 +77,7 @@ def check_alerts(conn, symbol, admin_chat_id):
             # Завантажуємо df для ATR і графіка
             df = load_last_bars(conn, symbol, LEVEL_LOOKBACK_MIN)
             if df is None:
+                logger.warning(f"BLOCKED: {symbol} {threshold_name} - failed to load df for chart")
                 continue
 
             # Форматуємо повідомлення (передаємо df для ATR)
@@ -104,6 +106,7 @@ def check_alerts(conn, symbol, admin_chat_id):
         
         # Cooldown 60 хвилин
         if not can_alert(conn, symbol, alert_type, 60):
+            logger.info(f"BLOCKED by cooldown: {symbol} level {touched_level} (60 min cooldown)")
             return
 
         # Завантажуємо df для ATR і графіка
@@ -114,6 +117,7 @@ def check_alerts(conn, symbol, admin_chat_id):
         # Форматуємо повідомлення (передаємо df для ATR)
         msg, valid_levels = format_level_touch_alert(alert_data, df)
         if not msg:
+            logger.warning(f"BLOCKED: {symbol} {threshold_name} - format_threshold_alert returned None")
             return
 
         # Будуємо графік
