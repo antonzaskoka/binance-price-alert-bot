@@ -117,7 +117,7 @@ def build_volume_alert_chart(df, symbol):
             )
 
     ax_price.set_ylabel("Price (USDT)", fontsize=10)
-    ax_price.grid(True, alpha=0.3)
+    ax_price.grid(True, alpha=0.3, axis='y')
     ax_price.set_xticks([])
     ax_price.set_title(f"{symbol} | 1h | Volume Breakout", fontsize=12, fontweight='bold')
 

@@ -121,7 +121,7 @@ def build_menu_chart(df, symbol, timeframe, detected_level=None, custom_price=No
             )
 
     ax_price.set_ylabel("Price")
-    ax_price.grid(True, alpha=0.3)
+    ax_price.grid(True, alpha=0.3, axis='y')
     ax_price.set_xticks([])
 
     # Об'єм
