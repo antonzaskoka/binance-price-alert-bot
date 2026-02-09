@@ -53,7 +53,7 @@ def build_menu_chart(df, symbol, timeframe, detected_level=None, custom_price=No
     # ✅ Додаємо вертикальні лінії кожні 15 барів
     total_bars = len(df)
     for i in range(total_bars - 1, -1, -15):
-        ax_price.axvline(x=i, color="darkgray", linestyle=":", linewidth=0.5, alpha=0.3)
+        ax_price.axvline(x=i, color="black", linestyle=":", linewidth=0.5, alpha=0.3)
     
     # ✅ Тікер ЛІВОРУЧ вгорі
     ax_price.text(
