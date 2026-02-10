@@ -85,8 +85,12 @@ def check_alerts(conn, symbol, admin_chat_id):
             if not msg:
                 continue
 
+        try:
             # Будуємо графік
+            logger.info(f"Building chart for {symbol} {threshold_name}...")
             chart_path = build_alert_chart(df, symbol, valid_levels)
+            
+            logger.info(f"Sending alert to Telegram for {symbol} {threshold_name}...")
             send_alert_chart(
                 chat_id=admin_chat_id,
                 symbol=symbol,
@@ -95,7 +99,15 @@ def check_alerts(conn, symbol, admin_chat_id):
                 price=alert_data["open_price"],
                 reason=msg
             )
-            logger.info(f"Threshold alert sent: {symbol} {threshold_name}")
+            
+            # ✅ ДОДАТИ: Записуємо в БД ТІЛЬКИ ПІСЛЯ успішної відправки
+            from database.models import record_alert
+            record_alert(conn, symbol, alert_type)
+            
+            logger.info(f"✅ Threshold alert sent: {symbol} {threshold_name}")
+        except Exception as e:
+            logger.error(f"❌ Failed to send threshold alert for {symbol} {threshold_name}: {e}")
+            logger.exception("Full traceback:")
 
     # ===== TYPE 2: LEVEL TOUCH ALERTS =====
     alert_data = check_level_touch_alert(conn, symbol, cfg)
@@ -108,26 +120,59 @@ def check_alerts(conn, symbol, admin_chat_id):
         if not can_alert(conn, symbol, alert_type, 60):
             logger.info(f"BLOCKED by cooldown: {symbol} level {touched_level} (60 min cooldown)")
             return
-
+        
         # Завантажуємо df для ATR і графіка
         df = load_last_bars(conn, symbol, LEVEL_LOOKBACK_MIN)
         if df is None:
-            return
+            logger.warning(f"BLOCKED: {symbol} {threshold_name} - failed to load df for chart")
+            continue
 
-        # Форматуємо повідомлення (передаємо df для ATR)
-        msg, valid_levels = format_level_touch_alert(alert_data, df)
+        # Форматуємо повідомлення
+        msg, valid_levels = format_threshold_alert(alert_data, df)
         if not msg:
             logger.warning(f"BLOCKED: {symbol} {threshold_name} - format_threshold_alert returned None")
-            return
+            continue
 
-        # Будуємо графік
-        chart_path = build_alert_chart(df, symbol, valid_levels)
-        send_alert_chart(
-            chat_id=admin_chat_id,
-            symbol=symbol,
-            timeframe="1m",
-            chart_path=chart_path,
-            price=alert_data["open_price"],
-            reason=msg
-        )
-        logger.info(f"Level touch alert sent: {symbol} level {touched_level}")
+        try:
+            # Будуємо графік
+            chart_path = build_alert_chart(df, symbol, valid_levels)
+            send_alert_chart(
+                chat_id=admin_chat_id,
+                symbol=symbol,
+                timeframe="1m",
+                chart_path=chart_path,
+                price=alert_data["open_price"],
+                reason=msg
+            )
+            
+            # ✅ ДОДАТИ: Записуємо в БД ТІЛЬКИ ПІСЛЯ успішної відправки
+            from database.models import record_alert
+            record_alert(conn, symbol, alert_type)
+            
+            logger.info(f"Level touch alert sent: {symbol} level {touched_level}")
+        except Exception as e:
+            logger.error(f"❌ Failed to send level touch alert for {symbol} level {touched_level}: {e}")
+            logger.exception("Full traceback:")
+
+        # # Завантажуємо df для ATR і графіка
+        # df = load_last_bars(conn, symbol, LEVEL_LOOKBACK_MIN)
+        # if df is None:
+        #     return
+
+        # # Форматуємо повідомлення (передаємо df для ATR)
+        # msg, valid_levels = format_level_touch_alert(alert_data, df)
+        # if not msg:
+        #     logger.warning(f"BLOCKED: {symbol} {threshold_name} - format_threshold_alert returned None")
+        #     return
+
+        # # Будуємо графік
+        # chart_path = build_alert_chart(df, symbol, valid_levels)
+        # send_alert_chart(
+        #     chat_id=admin_chat_id,
+        #     symbol=symbol,
+        #     timeframe="1m",
+        #     chart_path=chart_path,
+        #     price=alert_data["open_price"],
+        #     reason=msg
+        # )
+        # logger.info(f"Level touch alert sent: {symbol} level {touched_level}")

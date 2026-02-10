@@ -66,8 +66,13 @@ def get_last_close(conn, symbol):
     return row[0] if row else None
 
 
-def can_alert(conn, symbol, alert_type, cooldown_min):
-    """Перевіряє, чи можна відправити алерт (cooldown)"""
+ddef can_alert(conn, symbol, alert_type, cooldown_min):
+    """
+    Перевіряє чи можна надіслати алерт (тільки перевірка, НЕ записує в БД)
+    
+    Returns:
+        bool: True якщо cooldown минув
+    """
     import time
     
     now = int(time.time() * 1000)
@@ -78,16 +83,27 @@ def can_alert(conn, symbol, alert_type, cooldown_min):
         (symbol, alert_type)
     )
     r = cur.fetchone()
+    
     if r and now - r[0] < cooldown_ms:
         return False
+    
+    return True
 
+
+def record_alert(conn, symbol, alert_type):
+    """
+    Записує алерт в БД (викликається ПІСЛЯ успішної відправки)
+    """
+    import time
+    
+    now = int(time.time() * 1000)
+    
     conn.execute("""
         INSERT INTO alert_state VALUES (?,?,?)
         ON CONFLICT(symbol,alert_type)
         DO UPDATE SET last_trigger_ms=excluded.last_trigger_ms
     """, (symbol, alert_type, now))
     conn.commit()
-    return True
 
 def load_hourly_bars(conn, symbol, limit=400):
     """
