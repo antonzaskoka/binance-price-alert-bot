@@ -66,7 +66,7 @@ def get_last_close(conn, symbol):
     return row[0] if row else None
 
 
-ddef can_alert(conn, symbol, alert_type, cooldown_min):
+def can_alert(conn, symbol, alert_type, cooldown_min):
     """
     Перевіряє чи можна надіслати алерт (тільки перевірка, НЕ записує в БД)
     
