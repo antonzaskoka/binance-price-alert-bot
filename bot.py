@@ -283,7 +283,7 @@ def handle_update(update, conn):
             cursor = conn.execute(
                 """
                 SELECT symbol, alert_type, triggered_at_utc 
-                FROM alerts 
+                FROM alert_state 
                 ORDER BY triggered_at_utc DESC 
                 LIMIT 20
                 """
@@ -293,8 +293,12 @@ def handle_update(update, conn):
             
             if rows:
                 msg = "📋 <b>Останні 20 алертів:</b>\n\n"
-                for symbol, alert_type, triggered_at in rows:
-                    msg += f"• {symbol} - <code>{alert_type}</code>\n  {triggered_at}\n\n"
+                for symbol, alert_type, last_trigger_ms in rows:
+                    # Конвертуємо мілісекунди в дату
+                    dt = datetime.fromtimestamp(last_trigger_ms / 1000)
+                    time_str = dt.strftime('%Y-%m-%d %H:%M:%S')
+                    
+                    msg += f"• {symbol} - <code>{alert_type}</code>\n  {time_str}\n\n"
             else:
                 msg = "⚠️ Немає записів в базі алертів"
             
