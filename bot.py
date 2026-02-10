@@ -282,9 +282,9 @@ def handle_update(update, conn):
             
             cursor = conn.execute(
                 """
-                SELECT symbol, alert_type, triggered_at_utc 
+                SELECT symbol, alert_type, last_trigger_ms
                 FROM alert_state 
-                ORDER BY triggered_at_utc DESC 
+                ORDER BY last_trigger_ms DESC 
                 LIMIT 20
                 """
             )
