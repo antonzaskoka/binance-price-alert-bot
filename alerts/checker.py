@@ -78,12 +78,12 @@ def check_alerts(conn, symbol, admin_chat_id):
             df = load_last_bars(conn, symbol, LEVEL_LOOKBACK_MIN)
             if df is None:
                 logger.warning(f"BLOCKED: {symbol} {threshold_name} - failed to load df for chart")
-                continue
+                return
 
             # Форматуємо повідомлення (передаємо df для ATR)
             msg, valid_levels = format_threshold_alert(alert_data, df)
             if not msg:
-                continue
+                return
 
         try:
             # Будуємо графік
@@ -125,13 +125,13 @@ def check_alerts(conn, symbol, admin_chat_id):
         df = load_last_bars(conn, symbol, LEVEL_LOOKBACK_MIN)
         if df is None:
             logger.warning(f"BLOCKED: {symbol} {threshold_name} - failed to load df for chart")
-            continue
+            return
 
         # Форматуємо повідомлення
         msg, valid_levels = format_threshold_alert(alert_data, df)
         if not msg:
             logger.warning(f"BLOCKED: {symbol} {threshold_name} - format_threshold_alert returned None")
-            continue
+            return  
 
         try:
             # Будуємо графік
