@@ -93,7 +93,7 @@ def send_telegram_photo(chat_id, photo_path, caption):
 #         chat_id=chat_id,
 #         photo_path=chart_path,
 #         caption=caption
-    )
+#    )
 def send_alert_chart(chat_id, symbol, timeframe, chart_path, price, reason):
     """Відправляє алерт з графіком"""
     import logging
