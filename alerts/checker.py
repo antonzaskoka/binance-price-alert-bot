@@ -31,6 +31,7 @@ def check_alerts(conn, symbol, admin_chat_id):
         
         if alert_data:
             alert_type = f"threshold_{threshold_name}"
+            alert_data["minutes"] = minutes
             
             # Cooldown 15 хвилин
             if not can_alert(conn, symbol, alert_type, 15):
