@@ -85,29 +85,29 @@ def check_alerts(conn, symbol, admin_chat_id):
             if not msg:
                 return
 
-        try:
-            # Будуємо графік
-            logger.info(f"Building chart for {symbol} {threshold_name}...")
-            chart_path = build_alert_chart(df, symbol, valid_levels)
-            
-            logger.info(f"Sending alert to Telegram for {symbol} {threshold_name}...")
-            send_alert_chart(
-                chat_id=admin_chat_id,
-                symbol=symbol,
-                timeframe="1m",
-                chart_path=chart_path,
-                price=alert_data["open_price"],
-                reason=msg
-            )
-            
-            # ✅ ДОДАТИ: Записуємо в БД ТІЛЬКИ ПІСЛЯ успішної відправки
-            from database.models import record_alert
-            record_alert(conn, symbol, alert_type)
-            
-            logger.info(f"✅ Threshold alert sent: {symbol} {threshold_name}")
-        except Exception as e:
-            logger.error(f"❌ Failed to send threshold alert for {symbol} {threshold_name}: {e}")
-            logger.exception("Full traceback:")
+            try:
+                # Будуємо графік
+                logger.info(f"Building chart for {symbol} {threshold_name}...")
+                chart_path = build_alert_chart(df, symbol, valid_levels)
+                
+                logger.info(f"Sending alert to Telegram for {symbol} {threshold_name}...")
+                send_alert_chart(
+                    chat_id=admin_chat_id,
+                    symbol=symbol,
+                    timeframe="1m",
+                    chart_path=chart_path,
+                    price=alert_data["open_price"],
+                    reason=msg
+                )
+                
+                # ✅ ДОДАТИ: Записуємо в БД ТІЛЬКИ ПІСЛЯ успішної відправки
+                from database.models import record_alert
+                record_alert(conn, symbol, alert_type)
+                
+                logger.info(f"✅ Threshold alert sent: {symbol} {threshold_name}")
+            except Exception as e:
+                logger.error(f"❌ Failed to send threshold alert for {symbol} {threshold_name}: {e}")
+                logger.exception("Full traceback:")
 
     # ===== TYPE 2: LEVEL TOUCH ALERTS =====
     alert_data = check_level_touch_alert(conn, symbol, cfg)
