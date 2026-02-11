@@ -45,13 +45,17 @@ def send_telegram_message(chat_id, text, reply_markup=None, parse_mode="HTML"):
 
 
 def send_telegram_photo(chat_id, photo_path, caption):
-    """Надсилає фото з підписом"""
+    """Надсилає фото з підписом
+    
+    Returns:
+        bool: True якщо успішно, False якщо помилка
+    """
     try:
         logger.info(f"📤 Sending photo: {photo_path}")
         
         if not os.path.exists(photo_path):
             logger.error(f"❌ Photo file not found: {photo_path}")
-            return
+            return False
         
         with open(photo_path, "rb") as f:
             r = requests.post(
@@ -67,28 +71,44 @@ def send_telegram_photo(chat_id, photo_path, caption):
             
             if r.status_code != 200:
                 logger.error(f"❌ Telegram photo API error: {r.text}")
-            else:
-                logger.info(f"✅ Photo sent successfully")
+                return False
+            
+            result = r.json()
+            
+            if not result.get("ok"):
+                logger.error(f"❌ Telegram returned ok=false: {result}")
+                return False
+            
+            logger.info(f"✅ Photo sent successfully")
+            return True
     
     except Exception as e:
         logger.error(f"❌ Failed to send photo: {e}")
         logger.exception("Full traceback:")
+        return False
 
 
 def send_alert_chart(chat_id, symbol, timeframe, chart_path, price, reason):
-    """Надсилає графік алерта"""
+    """Надсилає графік алерта
+    
+    Returns:
+        bool: True якщо успішно, False якщо помилка
+    """
     logger.info(f"📤 Preparing alert chart for {symbol} {timeframe}")
     
     # Reason вже містить повний текст повідомлення
     caption = reason
 
-    send_telegram_photo(
+    success = send_telegram_photo(
         chat_id=chat_id,
         photo_path=chart_path,
         caption=caption
     )
     
-    logger.info(f"✅ Alert chart sent for {symbol}")
+    if success:
+        logger.info(f"✅ Alert chart sent for {symbol}")
+    
+    return success
 
 
 def send_menu_chart(chat_id, chart_path, caption):

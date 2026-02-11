@@ -80,13 +80,14 @@ def check_alerts(conn, symbol, admin_chat_id):
                 logger.warning(f"BLOCKED: {symbol} {threshold_name} - no msg")
                 continue
 
-            # ✅ Відправка з try-except
             try:
                 logger.info(f"Building chart for {symbol} {threshold_name}...")
                 chart_path = build_alert_chart(df, symbol, valid_levels)
                 
                 logger.info(f"Sending alert to Telegram for {symbol} {threshold_name}...")
-                send_alert_chart(
+                
+                # ✅ Відправляємо і перевіряємо результат
+                success = send_alert_chart(
                     chat_id=admin_chat_id,
                     symbol=symbol,
                     timeframe="1m",
@@ -95,10 +96,12 @@ def check_alerts(conn, symbol, admin_chat_id):
                     reason=msg
                 )
                 
-                # ✅ Записуємо в БД ТІЛЬКИ ПІСЛЯ успішної відправки
-                record_alert(conn, symbol, alert_type)
-                
-                logger.info(f"✅ Threshold alert sent: {symbol} {threshold_name}")
+                # ✅ Записуємо в БД ТІЛЬКИ якщо Telegram повернув успіх
+                if success:
+                    record_alert(conn, symbol, alert_type)
+                    logger.info(f"✅ Threshold alert sent: {symbol} {threshold_name}")
+                else:
+                    logger.error(f"❌ Telegram rejected alert for {symbol} {threshold_name}")
             
             except Exception as e:
                 logger.error(f"❌ Failed to send threshold alert {symbol} {threshold_name}: {e}")
@@ -134,7 +137,9 @@ def check_alerts(conn, symbol, admin_chat_id):
             chart_path = build_alert_chart(df, symbol, valid_levels)
             
             logger.info(f"Sending level touch alert to Telegram...")
-            send_alert_chart(
+            
+            # ✅ Відправляємо і перевіряємо результат
+            success = send_alert_chart(
                 chat_id=admin_chat_id,
                 symbol=symbol,
                 timeframe="1m",
@@ -143,10 +148,12 @@ def check_alerts(conn, symbol, admin_chat_id):
                 reason=msg
             )
             
-            # ✅ Записуємо в БД ТІЛЬКИ ПІСЛЯ успішної відправки
-            record_alert(conn, symbol, alert_type)
-            
-            logger.info(f"✅ Level touch alert sent: {symbol} level {touched_level}")
+            # ✅ Записуємо в БД ТІЛЬКИ якщо успіх
+            if success:
+                record_alert(conn, symbol, alert_type)
+                logger.info(f"✅ Level touch alert sent: {symbol} level {touched_level}")
+            else:
+                logger.error(f"❌ Telegram rejected level touch for {symbol} level {touched_level}")
         
         except Exception as e:
             logger.error(f"❌ Failed to send level touch alert {symbol} {touched_level}: {e}")
