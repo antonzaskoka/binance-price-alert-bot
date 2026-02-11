@@ -68,7 +68,7 @@ def get_last_close(conn, symbol):
 
 def can_alert(conn, symbol, alert_type, cooldown_min):
     """
-    Перевіряє чи можна надіслати алерт (тільки перевірка, НЕ записує в БД)
+    Перевіряє чи можна надіслати алерт (тільки перевірка, НЕ записує)
     
     Returns:
         bool: True якщо cooldown минув
@@ -89,6 +89,21 @@ def can_alert(conn, symbol, alert_type, cooldown_min):
     
     return True
 
+
+def record_alert(conn, symbol, alert_type):
+    """
+    Записує алерт в БД (викликається ПІСЛЯ успішної відправки)
+    """
+    import time
+    
+    now = int(time.time() * 1000)
+    
+    conn.execute("""
+        INSERT INTO alert_state VALUES (?,?,?)
+        ON CONFLICT(symbol,alert_type)
+        DO UPDATE SET last_trigger_ms=excluded.last_trigger_ms
+    """, (symbol, alert_type, now))
+    conn.commit()
 
 def record_alert(conn, symbol, alert_type):
     """
