@@ -18,7 +18,7 @@ from alerts.symbols_manager import load_symbols as reload_symbols
 from alerts.checker import check_alerts
 from alerts.alert_types import calculate_range_pct
 from alerts.alert_formatter import calculate_atr
-from alerts.volume_alert import check_volume_alert, format_volume_alert, calculate_volume_usdt
+from alerts.volume_alert import check_volume_alert, format_volume_alert
 from alerts.levels_manager import load_levels
 import alerts.levels_manager as lm
 from config import SYMBOLS, ADMIN_CHAT_ID, ALIVE_INTERVAL, RISK_USDT, LEVELS_FILE, SYMBOLS_FILE
@@ -416,7 +416,7 @@ def main():
                             df = load_hourly_bars(conn, s, limit=90)
                             
                             if df is not None:
-                                df = calculate_volume_usdt(df)
+                                #df = calculate_volume_usdt(df)
                                 chart_path = build_volume_alert_chart(df, s)
                                 
                                 send_alert_chart(
