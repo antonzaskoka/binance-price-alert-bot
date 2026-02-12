@@ -78,11 +78,11 @@ def format_threshold_alert(alert_data, df):
 
     # Визначаємо назву алерта за діапазоном часу
     if minutes <= 2:
-        alert_label = "📈⚡💨SMALL RANGE"
+        alert_label = "📈⚡💨⚡💨SMALL RANGE"
     elif minutes <= 20:
-        alert_label = "📈🚀💥MIDDLE RANGE"
+        alert_label = "📈🚀💥🚀💥MIDDLE RANGE"
     else:
-        alert_label = "📈🔥🌟LONG RANGE"
+        alert_label = "📈🔥🌟🔥🌟LONG RANGE"
 
     # ✅ Отримуємо threshold для підпису
     threshold_value = cfg[f"{threshold_name.lower()}_threshold"]

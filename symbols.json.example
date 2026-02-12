@@ -33,5 +33,27 @@
     "long_threshold": 3.2,
     "sl_small_pct": 0.0066,
     "sl_big_pct": 0.0132
+  },
+  "XPTUSDT": {
+    "short_threshold": 0.8,
+    "middle_threshold": 1.5,
+    "long_threshold": 3.2,
+    "sl_small_pct": 0.0066,
+    "sl_big_pct": 0.0132
+  },
+  "XPDUSDT": {
+    "short_threshold": 0.8,
+    "middle_threshold": 1.5,
+    "long_threshold": 3.2,
+    "sl_small_pct": 0.0066,
+    "sl_big_pct": 0.0132
+  },
+  "TSLAUSDT": {
+    "short_threshold": 0.3,
+    "middle_threshold": 0.6,
+    "long_threshold": 1.2,
+    "sl_small_pct": 0.001,
+    "sl_big_pct": 0.002
   }
+
 }

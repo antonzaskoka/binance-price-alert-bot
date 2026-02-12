@@ -84,7 +84,7 @@ def check_alerts(conn, symbol, admin_chat_id):
                 logger.info(f"Building chart for {symbol} {threshold_name}...")
                 chart_path = build_alert_chart(df, symbol, valid_levels)
                 
-                logger.info(f"Sending alert to Telegram for {symbol} {threshold_name}...")
+                # logger.info(f"Sending alert to Telegram for {symbol} {threshold_name}...")
                 
                 # ✅ Відправляємо і перевіряємо результат
                 success = send_alert_chart(
@@ -99,7 +99,7 @@ def check_alerts(conn, symbol, admin_chat_id):
                 # ✅ Записуємо в БД ТІЛЬКИ якщо Telegram повернув успіх
                 if success:
                     record_alert(conn, symbol, alert_type)
-                    logger.info(f"✅ Threshold alert sent: {symbol} {threshold_name}")
+                    # logger.info(f"✅ Threshold alert sent: {symbol} {threshold_name}")
                 else:
                     logger.error(f"❌ Telegram rejected alert for {symbol} {threshold_name}")
             
@@ -136,7 +136,7 @@ def check_alerts(conn, symbol, admin_chat_id):
             logger.info(f"Building chart for {symbol} level {touched_level}...")
             chart_path = build_alert_chart(df, symbol, valid_levels)
             
-            logger.info(f"Sending level touch alert to Telegram...")
+            # logger.info(f"Sending level touch alert to Telegram...")
             
             # ✅ Відправляємо і перевіряємо результат
             success = send_alert_chart(
@@ -151,7 +151,7 @@ def check_alerts(conn, symbol, admin_chat_id):
             # ✅ Записуємо в БД ТІЛЬКИ якщо успіх
             if success:
                 record_alert(conn, symbol, alert_type)
-                logger.info(f"✅ Level touch alert sent: {symbol} level {touched_level}")
+                # logger.info(f"✅ Level touch alert sent: {symbol} level {touched_level}")
             else:
                 logger.error(f"❌ Telegram rejected level touch for {symbol} level {touched_level}")
         
