@@ -32,6 +32,7 @@ from telegram.client import send_telegram_message, send_alert_chart, send_menu_c
 from telegram.menu_handler import handle_text, handle_callback, show_main_menu
 from utils.binance_api import fetch_last_bars
 from utils.binance_markets import fetch_all_usdt_symbols
+from database.db_manager import migrate_hourly_tables
 
 logger = logging.getLogger(__name__)
 
@@ -324,6 +325,11 @@ def main():
     conn = get_conn()
     ensure_alerts_table(conn)
 
+    # ✅ ДОДАНО: Міграція hourly таблиць при старті
+    logger.info("Running hourly tables migration...")
+    migrate_hourly_tables(conn)
+    logger.info("Migration completed")
+
     for s in SYMBOLS:
         ensure_tables(conn, s)
 
@@ -410,16 +416,17 @@ def main():
                             logger.info(f"{s}: synced {added_hourly} hourly bars")
                         
                         alert_data = check_volume_alert(conn, s, cfg)
-                        
+
                         if alert_data:
                             msg = format_volume_alert(alert_data)
+                            
+                            # ✅ Завантажуємо df тільки для графіка
                             df = load_hourly_bars(conn, s, limit=90)
                             
                             if df is not None:
-                                #df = calculate_volume_usdt(df)
                                 chart_path = build_volume_alert_chart(df, s)
                                 
-                                send_alert_chart(
+                                success = send_alert_chart(
                                     chat_id=ADMIN_CHAT_ID,
                                     symbol=s,
                                     timeframe="1h",
@@ -428,7 +435,10 @@ def main():
                                     reason=msg
                                 )
                                 
-                                logger.info(f"Volume alert sent: {s}")
+                                if success:
+                                    logger.info(f"Volume alert sent: {s}")
+                                else:
+                                    logger.error(f"Failed to send volume alert: {s}")
                         
                         time.sleep(0.5)
 

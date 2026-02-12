@@ -130,9 +130,10 @@ def load_hourly_bars(conn, symbol, limit=400):
     table = f"kline_{symbol.lower()}_1h"
     
     try:
+        # ✅ ДОДАНО: завантажуємо volume_usdt якщо є
         cur = conn.execute(
             f"""
-            SELECT open_time_utc, open, high, low, close, volume
+            SELECT open_time_utc, open, high, low, close, volume, volume_usdt
             FROM {table}
             ORDER BY open_time_ms DESC
             LIMIT ?
@@ -147,11 +148,15 @@ def load_hourly_bars(conn, symbol, limit=400):
         
         df = pd.DataFrame(
             rows,
-            columns=["open_time", "open", "high", "low", "close", "volume"]
+            columns=["open_time", "open", "high", "low", "close", "volume", "volume_usdt"]
         )
         
         df = df.iloc[::-1].reset_index(drop=True)
         df["open_time"] = pd.to_datetime(df["open_time"])
+        
+        # ✅ Якщо volume_usdt == None (старі дані до міграції), розраховуємо
+        if df["volume_usdt"].isna().any():
+            df["volume_usdt"] = df["open"] * df["volume"]
         
         return df
         

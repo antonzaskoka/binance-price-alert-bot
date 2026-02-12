@@ -294,3 +294,69 @@ def calculate_and_store_volume_metrics(conn, symbol):
     conn.commit()
     
     logger.info(f"{symbol}: calculated volume metrics for {len(df)} bars")
+
+def migrate_hourly_tables(conn):
+    """
+    Додає нові колонки до всіх існуючих таблиць kline_*_1h
+    """
+    cursor = conn.execute("""
+        SELECT name FROM sqlite_master 
+        WHERE type='table' 
+        AND name LIKE 'kline_%_1h'
+    """)
+    
+    tables = [row[0] for row in cursor.fetchall()]
+    
+    for table in tables:
+        # Перевіряємо які колонки є
+        cursor = conn.execute(f"PRAGMA table_info({table})")
+        columns = [row[1] for row in cursor.fetchall()]
+        
+        # Додаємо відсутні колонки
+        if 'volume_usdt' not in columns:
+            logger.info(f"Adding volume_usdt column to {table}")
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN volume_usdt REAL")
+        
+        if 'volume_24h' not in columns:
+            logger.info(f"Adding volume_24h column to {table}")
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN volume_24h REAL")
+        
+        if 'volume_avg_14d' not in columns:
+            logger.info(f"Adding volume_avg_14d column to {table}")
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN volume_avg_14d REAL")
+        
+        if 'ratio' not in columns:
+            logger.info(f"Adding ratio column to {table}")
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN ratio REAL")
+        
+        conn.commit()
+        
+        # ✅ Розраховуємо метрики для існуючих даних
+        try:
+            # Перевіряємо чи є дані без метрик
+            cursor = conn.execute(f"""
+                SELECT COUNT(*) FROM {table}
+                WHERE volume_usdt IS NULL
+            """)
+            
+            null_count = cursor.fetchone()[0]
+            
+            if null_count > 0:
+                logger.info(f"{table}: updating {null_count} bars with missing metrics")
+                
+                # Оновлюємо volume_usdt для барів без нього
+                conn.execute(f"""
+                    UPDATE {table}
+                    SET volume_usdt = open * volume
+                    WHERE volume_usdt IS NULL
+                """)
+                conn.commit()
+                
+                # Розраховуємо метрики
+                symbol = table.replace("kline_", "").replace("_1h", "").upper()
+                calculate_and_store_volume_metrics(conn, symbol)
+        
+        except Exception as e:
+            logger.error(f"Error migrating {table}: {e}")
+    
+    logger.info(f"Migration completed for {len(tables)} tables")
