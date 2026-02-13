@@ -153,11 +153,7 @@ def load_hourly_bars(conn, symbol, limit=400):
         
         df = df.iloc[::-1].reset_index(drop=True)
         df["open_time"] = pd.to_datetime(df["open_time"])
-        
-        # ✅ Якщо volume_usdt == None (старі дані до міграції), розраховуємо
-        if df["volume_usdt"].isna().any():
-            df["volume_usdt"] = df["open"] * df["volume"]
-        
+              
         return df
         
     except Exception as e:

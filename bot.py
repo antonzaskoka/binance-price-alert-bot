@@ -32,7 +32,6 @@ from telegram.client import send_telegram_message, send_alert_chart, send_menu_c
 from telegram.menu_handler import handle_text, handle_callback, show_main_menu
 from utils.binance_api import fetch_last_bars
 from utils.binance_markets import fetch_all_usdt_symbols
-from database.db_manager import migrate_hourly_tables
 
 logger = logging.getLogger(__name__)
 
@@ -432,11 +431,6 @@ def main():
 
     conn = get_conn()
     ensure_alerts_table(conn)
-
-    # ✅ ДОДАНО: Міграція hourly таблиць при старті
-    logger.info("Running hourly tables migration...")
-    migrate_hourly_tables(conn)
-    logger.info("Migration completed")
 
     for s in SYMBOLS:
         ensure_tables(conn, s)

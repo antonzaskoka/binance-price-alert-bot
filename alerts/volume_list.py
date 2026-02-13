@@ -11,10 +11,12 @@ logger = logging.getLogger(__name__)
 
 def get_volume_list(avg_threshold, min_ratio):
     """
-    Завантажує готові метрики з БД і фільтрує за avg та ratio
+    Завантажує готові метрики з БД і фільтрує за volume_24h та ratio
+    
+    ✅ ВИПРАВЛЕНО: фільтруємо по volume_24h (не avg_14d!)
     
     Args:
-        avg_threshold: мінімальний volume_avg_14d
+        avg_threshold: мінімальний volume_24h (не avg_14d!)
         min_ratio: мінімальний ratio volume_24h / avg_14d
 
     Returns:
@@ -40,31 +42,64 @@ def get_volume_list(avg_threshold, min_ratio):
         try:
             symbol = table.replace("kline_", "").replace("_1h", "").upper()
             
-            # ✅ Читаємо готові метрики з БД
+            # ✅ Читаємо готові метрики з БД + ДОДАНО high, low, close для NATR
             cursor = conn.execute(f"""
-                SELECT open, volume_24h, volume_avg_14d, ratio
+                SELECT open, high, low, close, volume_24h, volume_avg_14d, ratio
                 FROM {table}
                 ORDER BY open_time_ms DESC
-                LIMIT 1
+                LIMIT 90
             """)
             
-            row = cursor.fetchone()
+            rows = cursor.fetchall()
             
-            if not row:
+            if not rows:
                 continue
             
-            open_price, volume_24h, volume_avg_14d, ratio = row
+            # Останній бар
+            last_row = rows[0]
+            open_price, last_high, last_low, last_close, volume_24h, volume_avg_14d, ratio = last_row
             
             if not volume_24h or not volume_avg_14d or not ratio:
                 continue
             
-            # Фільтр по avg
-            if volume_avg_14d < avg_threshold:
+            # ✅ ВИПРАВЛЕНО: фільтр по volume_24h (не avg_14d!)
+            if volume_24h < avg_threshold:
+                continue
+            
+            # ✅ ДОДАНО: фільтр проти дрібних монет
+            if volume_24h < 1_000_000:
                 continue
             
             # Фільтр по ratio
             if ratio < min_ratio:
                 continue
+            
+            # ✅ ДОДАНО: Розраховуємо NATR
+            natr = None
+            if len(rows) >= 90:
+                # Розраховуємо ATR за 90 барів
+                atr_sum = 0
+                count = 0
+                
+                for i in range(min(90, len(rows))):
+                    _, high, low, close, _, _, _ = rows[i]
+                    
+                    if i == 0:
+                        tr = high - low
+                    else:
+                        prev_close = rows[i-1][3]
+                        tr = max(
+                            high - low,
+                            abs(high - prev_close),
+                            abs(low - prev_close)
+                        )
+                    
+                    atr_sum += tr
+                    count += 1
+                
+                if count > 0:
+                    atr = atr_sum / count
+                    natr = (atr / last_close) * 100 if last_close > 0 else None
             
             # Найближчий рівень
             symbol_levels = levels_map.get(symbol, [])
@@ -78,7 +113,8 @@ def get_volume_list(avg_threshold, min_ratio):
                 "volume_24h": volume_24h,
                 "volume_avg_14d": volume_avg_14d,
                 "open_price": open_price,
-                "nearest_level": nearest_level
+                "nearest_level": nearest_level,
+                "natr": natr  # ✅ ДОДАНО
             })
         
         except Exception as e:
@@ -92,9 +128,10 @@ def get_volume_list(avg_threshold, min_ratio):
     if not results:
         return "⚠️ Немає токенів з таким фільтром.\n\nПробуй зменшити мультиплікатор або діапазон avg."
     
+    # ✅ ВИПРАВЛЕНО: показуємо що фільтруємо по volume_24h
     msg = (
         f"📊 <b>Токени з зростаючим об'ємом</b>\n"
-        f"Avg ≥ ${avg_threshold // 1_000_000}M | Ratio ≥ {min_ratio}x\n"
+        f"Vol 24h ≥ ${avg_threshold // 1_000_000}M | Ratio ≥ {min_ratio}x\n"
         f"Знайдено: <b>{len(results)}</b> токенів\n"
         f"{'─' * 30}\n\n"
     )
@@ -105,11 +142,16 @@ def get_volume_list(avg_threshold, min_ratio):
         volume_24h = item["volume_24h"]
         open_price = item["open_price"]
         nearest_level = item["nearest_level"]
+        natr = item.get("natr")
         
         msg += f"<b>{symbol}</b>\n"
         msg += f"  🚀 Ratio: <b>{ratio:.2f}x</b>\n"
         msg += f"  🔊 Vol 24h: <b>${volume_24h:,.0f}</b>\n"
         msg += f"  💰 Price: <b>{open_price:.4f}</b>\n"
+        
+        # ✅ ДОДАНО: NATR
+        if natr:
+            msg += f"  📏 NATR(90): <b>{natr:.2f}%</b>\n"
         
         if nearest_level:
             diff_abs = nearest_level - open_price

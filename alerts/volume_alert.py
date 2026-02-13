@@ -73,6 +73,38 @@ def calculate_ma50(df):
     
     return df['close'].rolling(window=50).mean().iloc[-1]
 
+def calculate_natr(df, period=90):
+    """
+    Розраховує Normalized ATR (NATR)
+    
+    NATR = ATR(90) / Close * 100%
+    
+    Returns:
+        float або None
+    """
+    if len(df) < period:
+        return None
+    
+    # Беремо останні 90 барів
+    df_period = df.tail(period).copy()
+    
+    # True Range
+    df_period['high_low'] = df_period['high'] - df_period['low']
+    df_period['high_close'] = abs(df_period['high'] - df_period['close'].shift(1))
+    df_period['low_close'] = abs(df_period['low'] - df_period['close'].shift(1))
+    df_period['tr'] = df_period[['high_low', 'high_close', 'low_close']].max(axis=1)
+    
+    # ATR (середнє TR)
+    atr = df_period['tr'].mean()
+    
+    # Остання ціна закриття
+    last_close = df_period['close'].iloc[-1]
+    
+    # NATR у відсотках
+    natr = (atr / last_close) * 100 if last_close > 0 else None
+    
+    return natr
+
 
 def calculate_signal_strength(alert_data):
     """
@@ -124,18 +156,30 @@ def calculate_signal_strength(alert_data):
     return score
 
 
-def check_volume_threshold(volume_avg_14d, ratio):
+def check_volume_threshold(volume_24h, ratio):
     """
-    Перевіряє чи співвідношення перевищує поріг для даного середнього об'єму
-    """
-    for max_avg, min_ratio in VOLUME_THRESHOLDS:
-        if volume_avg_14d >= max_avg:
-            if ratio >= min_ratio:
-                return True
-            continue
+    Перевіряє чи об'єм за 24 години перевищує поріг
     
+    ✅ ВИПРАВЛЕНО: перевіряємо volume_24h (не avg_14d!)
+    
+    Драбинка порогів (від більшого до меншого):
+    - vol_24h >= 100M → ratio >= 2.0
+    - vol_24h >= 50M  → ratio >= 3.0
+    - vol_24h >= 30M  → ratio >= 5.0
+    - vol_24h >= 10M  → ratio >= 10.0
+    - інакше          → ratio >= 15.0
+    
+    Returns:
+        bool: True якщо токен відповідає умовам
+    """
+    # Знаходимо найбільший підходящий поріг
+    for threshold_volume, min_ratio in VOLUME_THRESHOLDS:
+        if volume_24h >= threshold_volume:
+            # Знайшли підходящий поріг - перевіряємо ratio
+            return ratio >= min_ratio
+    
+    # Не знайшли жодного порогу
     return False
-
 
 def check_volume_alert(conn, symbol, cfg):
     """
@@ -174,8 +218,12 @@ def check_volume_alert(conn, symbol, cfg):
     if volume_avg_14d < MIN_AVG_VOLUME:
         return None
     
-    # Перевіряємо поріг
-    if not check_volume_threshold(volume_avg_14d, ratio):
+    # ✅ ВИПРАВЛЕНО: перевіряємо volume_24h (не avg!)
+    if not check_volume_threshold(volume_24h, ratio):
+        return None
+    
+    # ✅ ДОДАНО: фільтр проти дрібних монет (volume_24h >= 1M)
+    if volume_24h < 1_000_000:
         return None
     
     # Cooldown
@@ -193,6 +241,9 @@ def check_volume_alert(conn, symbol, cfg):
     
     # Розраховуємо MA50
     ma50 = calculate_ma50(df)
+
+    # Розраховуємо NATR
+    natr = calculate_natr(df, period=90)
     
     # Розраховуємо зміну ціни за 24h
     if len(df) >= 24:
@@ -227,6 +278,7 @@ def check_volume_alert(conn, symbol, cfg):
         "plus_di": adx_data['plus_di'] if adx_data else None,
         "minus_di": adx_data['minus_di'] if adx_data else None,
         "ma50": ma50,
+        "natr": natr,
         "cfg": cfg
     }
     
@@ -294,6 +346,11 @@ def format_volume_alert(alert_data):
     if ma50:
         position_vs_ma = "вище" if price > ma50 else "нижче"
         msg += f"📊 MA50: {ma50:.4f} (ціна {position_vs_ma})\n"
+
+    # NATR
+    natr = alert_data.get("natr")
+    if natr:
+        msg += f"📏 NATR(90): {natr:.2f}%\n"
     
     msg += (
         f"\n🔻 Stop Loss: ${sl:.4f}\n"
