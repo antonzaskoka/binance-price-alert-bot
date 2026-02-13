@@ -286,6 +286,114 @@ def handle_update(update, conn):
         
         return
 
+    if text == "/export_db":
+        try:
+            import csv
+            import io
+            import zipfile
+            from datetime import datetime
+            
+            send_telegram_message(chat_id, "📦 Експортую дані для BTC, ETH, XAU...")
+            
+            # ✅ Список токенів для експорту
+            symbols_to_export = ["BTCUSDT", "ETHUSDT", "XAUUSDT"]
+            
+            # Створюємо ZIP архів в пам'яті
+            zip_buffer = io.BytesIO()
+            
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                exported_count = 0
+                
+                for symbol in symbols_to_export:
+                    table = f"kline_{symbol.lower()}_1h"
+                    
+                    try:
+                        # Читаємо дані з таблиці
+                        cursor = conn.execute(f"""
+                            SELECT open_time_utc, open, high, low, close, volume, 
+                                   volume_usdt, volume_24h, volume_avg_14d, ratio
+                            FROM {table}
+                            ORDER BY open_time_ms ASC
+                        """)
+                        
+                        rows = cursor.fetchall()
+                        
+                        if not rows:
+                            logger.warning(f"No data for {symbol}")
+                            continue
+                        
+                        # Створюємо CSV в пам'яті
+                        csv_buffer = io.StringIO()
+                        writer = csv.writer(csv_buffer)
+                        
+                        # Заголовки
+                        writer.writerow([
+                            "timestamp", "open", "high", "low", "close", "volume",
+                            "volume_usdt", "volume_24h", "volume_avg_14d", "ratio"
+                        ])
+                        
+                        # Дані
+                        writer.writerows(rows)
+                        
+                        # Додаємо CSV в ZIP
+                        csv_content = csv_buffer.getvalue()
+                        zip_file.writestr(
+                            f"{symbol}_hourly_data.csv",
+                            csv_content.encode('utf-8')
+                        )
+                        
+                        exported_count += 1
+                        logger.info(f"Exported {symbol}: {len(rows)} bars")
+                        
+                    except Exception as e:
+                        logger.error(f"Error exporting {symbol}: {e}")
+                        continue
+            
+            if exported_count == 0:
+                send_telegram_message(chat_id, "⚠️ Немає даних для експорту")
+                return
+            
+            # Надсилаємо ZIP файл
+            zip_buffer.seek(0)
+            
+            from config import TG_API
+            import requests
+            
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"hourly_data_{timestamp}.zip"
+            
+            files = {
+                'document': (filename, zip_buffer.read(), 'application/zip')
+            }
+            
+            data = {
+                'chat_id': chat_id,
+                'caption': (
+                    f"📊 Hourly data export\n\n"
+                    f"📦 Files: {exported_count}\n"
+                    f"🪙 Tokens: {', '.join(symbols_to_export)}"
+                )
+            }
+            
+            response = requests.post(
+                f"{TG_API}/sendDocument",
+                data=data,
+                files=files,
+                timeout=60
+            )
+            
+            if response.status_code == 200:
+                send_telegram_message(chat_id, "✅ Експорт завершено!")
+            else:
+                logger.error(f"Telegram sendDocument error: {response.text}")
+                send_telegram_message(chat_id, f"❌ Помилка відправки: {response.text}")
+        
+        except Exception as e:
+            logger.exception("Export DB error")
+            send_telegram_message(chat_id, f"❌ Помилка: {e}")
+        
+        return
+
     handle_text(chat_id, text, send_telegram_message)
 
 
