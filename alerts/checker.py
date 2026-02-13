@@ -16,10 +16,21 @@ from alerts.levels_manager import load_levels
 logger = logging.getLogger(__name__)
 
 
-def check_alerts(conn, symbol, admin_chat_id):
-    """Перевіряє алерти для символа"""
+def check_alerts(conn, symbol, admin_chat_id, cfg=None):
+    """
+    Перевіряє алерти для символа
     
-    cfg = SYMBOLS.get(symbol)
+    Args:
+        conn: з'єднання з БД
+        symbol: символ токена
+        admin_chat_id: chat_id для алертів
+        cfg: конфігурація токена (якщо None - береться з SYMBOLS)
+    """
+    
+    # ✅ ВИПРАВЛЕНО: cfg може бути переданий ззовні
+    if cfg is None:
+        cfg = SYMBOLS.get(symbol)
+    
     if not cfg:
         return
 

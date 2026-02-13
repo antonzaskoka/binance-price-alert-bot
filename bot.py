@@ -393,6 +393,57 @@ def handle_update(update, conn):
         
         return
 
+    if text == "/test_levels":
+        try:
+            from alerts.levels_manager import load_levels
+            
+            send_telegram_message(chat_id, "🔍 Перевіряю level touch для levels.json...")
+            
+            lm._LEVELS_CACHE = {}
+            lm._LEVELS_MTIME = None
+            levels_map = load_levels()
+            
+            # Токени тільки з levels.json
+            levels_only_symbols = set(levels_map.keys()) - set(SYMBOLS.keys())
+            
+            msg = f"📊 <b>Токени з levels.json:</b> {len(levels_only_symbols)}\n\n"
+            
+            checked = 0
+            found_alerts = 0
+            
+            for s in list(levels_only_symbols)[:10]:  # Перші 10 для тесту
+                ensure_tables(conn, s)
+                
+                # Синхронізуємо дані
+                added = sync_klines(conn, s)
+                
+                # Перевіряємо алерти
+                cfg = {"sl_small_pct": 0.01, "sl_big_pct": 0.02}
+                
+                # ✅ Викликаємо з cfg
+                from alerts.checker import check_alerts
+                
+                # Тимчасово патчимо для тесту
+                from alerts.alert_types import check_level_touch_alert
+                alert_data = check_level_touch_alert(conn, s, cfg)
+                
+                if alert_data:
+                    touched_level = alert_data["touched_level"]
+                    msg += f"✅ {s}: level {touched_level} touched!\n"
+                    found_alerts += 1
+                
+                checked += 1
+            
+            msg += f"\n📈 Перевірено: {checked}\n🔔 Знайдено торкань: {found_alerts}"
+            
+            send_telegram_message(chat_id, msg)
+            
+        except Exception as e:
+            logger.exception("Test levels error")
+            send_telegram_message(chat_id, f"❌ Помилка: {e}")
+        
+        return
+
     handle_text(chat_id, text, send_telegram_message)
 
 
@@ -491,7 +542,7 @@ def main():
                         if added:
                             logger.info(f"{s}: synced {added} 1m bars (levels)")
                         
-                        check_alerts(conn, s, ADMIN_CHAT_ID)
+                        check_alerts(conn, s, ADMIN_CHAT_ID, cfg=cfg)
             
             # ===== 4. ГОДИННІ БАРИ VOLUME ALERTS =====
             if current_minute == 3:
