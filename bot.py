@@ -333,43 +333,6 @@ def handle_update(update, conn):
         
         return
 
-    if text == "/cleanup_hourly":
-        try:
-            send_telegram_message(chat_id, "🗑️ Видаляю годинні таблиці...")
-            
-            # Отримуємо список hourly таблиць
-            cursor = conn.execute("""
-                SELECT name FROM sqlite_master 
-                WHERE type='table' 
-                AND name LIKE 'kline_%_1h'
-            """)
-            
-            tables = [row[0] for row in cursor.fetchall()]
-            
-            # Видаляємо
-            deleted = 0
-            for table in tables:
-                conn.execute(f"DROP TABLE IF EXISTS {table}")
-                deleted += 1
-            
-            conn.commit()
-            
-            send_telegram_message(
-                chat_id, 
-                f"✅ Видалено {deleted} годинних таблиць\n\n"
-                f"💾 БД звільнено ~{deleted * 5} MB"
-            )
-            
-            logger.info(f"Deleted {deleted} hourly tables")
-            
-        except Exception as e:
-            logger.exception("Cleanup hourly error")
-            send_telegram_message(chat_id, f"❌ Помилка: {e}")
-        
-        return
-
-
-
     handle_text(chat_id, text, send_telegram_message)
 
 
