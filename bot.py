@@ -338,7 +338,7 @@ def handle_update(update, conn):
             send_telegram_message(chat_id, "🔍 Перевіряю токени з levels.json...")
             
             from alerts.levels_manager import load_levels
-            from utils.binance_api import fetch_klines
+            from utils.binance_api import fetch_futures_klines
             import time
             
             lm._LEVELS_CACHE = {}
@@ -353,7 +353,7 @@ def handle_update(update, conn):
             
             for symbol in levels_map.keys():
                 try:
-                    klines = fetch_klines(
+                    klines = fetch_futures_klines(
                         symbol=symbol,
                         interval="1h",
                         start_time=hour_ago_ms,
@@ -568,7 +568,7 @@ def main():
                             
                             # ✅ Завантажуємо 90 годинних барів для графіка
                             try:
-                                klines_90 = fetch_klines(
+                                klines_90 = fetch_futures_klines(
                                     symbol=s,
                                     interval="1h",
                                     start_time=now_ms - 90 * 3600 * 1000,

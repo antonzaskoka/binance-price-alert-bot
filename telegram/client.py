@@ -23,8 +23,6 @@ def send_telegram_message(chat_id, text, reply_markup=None, parse_mode="HTML"):
         if reply_markup:
             payload["reply_markup"] = json.dumps(reply_markup)
 
-        logger.info(f"📤 Sending message to {chat_id}")
-        
         r = requests.post(
             f"{TG_API}/sendMessage",
             data=payload,
@@ -33,8 +31,6 @@ def send_telegram_message(chat_id, text, reply_markup=None, parse_mode="HTML"):
         
         if r.status_code != 200:
             logger.error(f"❌ Telegram API error: {r.text}")
-        else:
-            logger.info(f"✅ Message sent successfully")
         
         return r.json()
     

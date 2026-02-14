@@ -78,3 +78,33 @@ def fetch_klines(symbol, interval, start_time, end_time, limit=1000):
     except Exception as e:
         print(f"Error fetching klines for {symbol}: {e}")
         return []
+
+def fetch_futures_klines(symbol, interval, start_time, end_time, limit=500):
+    """
+    Завантажує klines з Binance Futures API
+    """
+    from config import BINANCE_KLINES_URL
+    
+    try:
+        r = requests.get(
+            BINANCE_KLINES_URL,
+            params={
+                "symbol": symbol,
+                "interval": interval,
+                "startTime": start_time,
+                "endTime": end_time,
+                "limit": limit
+            },
+            timeout=10
+        )
+        r.raise_for_status()
+        return r.json()
+    except requests.exceptions.HTTPError as e:
+        # Тихо повертаємо [] для 400 (токен не існує)
+        if e.response.status_code == 400:
+            return []
+        logger.error(f"Futures API error for {symbol}: {e}")
+        return []
+    except Exception as e:
+        logger.error(f"Error fetching Futures klines for {symbol}: {e}")
+        return []
