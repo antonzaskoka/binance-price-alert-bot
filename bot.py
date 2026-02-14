@@ -368,7 +368,7 @@ def handle_update(update, conn):
         
         return
 
-        
+
 
     handle_text(chat_id, text, send_telegram_message)
 
@@ -447,27 +447,125 @@ def main():
                 
                 last_alert_check = current_time
             
-            # ===== 3. ХВИЛИННІ БАРИ LEVELS.JSON =====
-            if current_minute == 15 or current_minute == 45:
-                if not hasattr(main, 'last_levels_minute') or main.last_levels_minute != current_minute:
-                    main.last_levels_minute = current_minute
+            # ===== 3. ГОДИННІ БАРИ ДЛЯ LEVELS.JSON (2-га хвилина кожної години) =====
+            if current_minute == 2:
+                if not hasattr(main, 'last_levels_hour') or main.last_levels_hour != current_datetime.hour:
+                    main.last_levels_hour = current_datetime.hour
                     
-                    logger.info(f"Loading bars for levels.json tokens (minute {current_minute})")
+                    logger.info(f"Loading hourly bars for levels.json tokens (hour {current_datetime.hour})")
                     
+                    # Перезавантажуємо levels.json
                     lm._LEVELS_CACHE = {}
                     lm._LEVELS_MTIME = None
                     levels_map = load_levels()
                     
+                    # Тільки токени з levels.json (виключаємо symbols.json)
                     levels_only_symbols = set(levels_map.keys()) - set(SYMBOLS.keys())
                     
+                    logger.info(f"Checking {len(levels_only_symbols)} tokens from levels.json")
+                    
+                    # Конфігурація для level touch
+                    default_cfg = {"sl_small_pct": 0.01, "sl_big_pct": 0.02}
+                    
                     for s in levels_only_symbols:
-                        ensure_tables(conn, s)
-                        added = sync_klines(conn, s)
-                        if added:
-                            logger.info(f"{s}: synced {added} 1m bars (levels)")
+                        try:
+                            # Створюємо таблицю якщо немає
+                            ensure_tables(conn, s)
+                            
+                            # ✅ НОВА ЛОГІКА: завантажуємо 1 годинний бар
+                            from utils.binance_api import fetch_klines
+                            
+                            now_ms = int(time.time() * 1000)
+                            hour_ago_ms = now_ms - 3600 * 1000
+                            
+                            klines = fetch_klines(
+                                symbol=s,
+                                interval="1h",
+                                start_time=hour_ago_ms,
+                                end_time=now_ms,
+                                limit=1
+                            )
+                            
+                            if not klines:
+                                continue
+                            
+                            # Конвертуємо в хвилинні бари (для сумісності)
+                            # Беремо high, low, open, close з годинного бару
+                            k = klines[0]
+                            open_price = float(k[1])
+                            high = float(k[2])
+                            low = float(k[3])
+                            close = float(k[4])
+                            
+                            # Записуємо як "синтетичний" хвилинний бар
+                            ts = k[0]
+                            utc = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                            
+                            conn.execute(
+                                f"INSERT OR IGNORE INTO {table_name(s)} VALUES (?,?,?,?,?,?,?)",
+                                (ts, utc, open_price, high, low, close, 0)  # volume = 0
+                            )
+                            conn.commit()
+                            
+                            # Перевіряємо level touch (тільки)
+                            from alerts.alert_types import check_level_touch_alert
+                            from alerts.alert_formatter import format_level_touch_alert
+                            from alerts.levels_manager import load_levels
+                            from charts.alert_chart import build_alert_chart
+                            from database.models import can_alert, record_alert, load_last_bars
+                            
+                            alert_data = check_level_touch_alert(conn, s, default_cfg)
+                            
+                            if alert_data:
+                                touched_level = alert_data["touched_level"]
+                                alert_type = f"level_touch_{touched_level}"
+                                
+                                # Cooldown 60 хвилин
+                                if not can_alert(conn, s, alert_type, 60):
+                                    logger.info(f"BLOCKED by cooldown: {s} level {touched_level} (60 min)")
+                                    continue
+                                
+                                # Завантажуємо більше даних для графіка
+                                df = load_last_bars(conn, s, 90)
+                                if df is None:
+                                    continue
+                                
+                                # Форматуємо повідомлення
+                                levels_map_current = load_levels()
+                                symbol_levels = levels_map_current.get(s, [])
+                                
+                                msg, valid_levels = format_level_touch_alert(alert_data, df)
+                                if not msg:
+                                    continue
+                                
+                                # Відправка з try-except
+                                try:
+                                    chart_path = build_alert_chart(df, s, valid_levels)
+                                    
+                                    success = send_alert_chart(
+                                        chat_id=ADMIN_CHAT_ID,
+                                        symbol=s,
+                                        timeframe="1h",
+                                        chart_path=chart_path,
+                                        price=alert_data["open_price"],
+                                        reason=msg
+                                    )
+                                    
+                                    if success:
+                                        record_alert(conn, s, alert_type)
+                                        logger.info(f"✅ Level touch alert sent: {s} level {touched_level}")
+                                    else:
+                                        logger.error(f"❌ Failed to send level touch: {s} level {touched_level}")
+                                
+                                except Exception as e:
+                                    logger.error(f"❌ Error sending level touch alert {s} {touched_level}: {e}")
+                            
+                            time.sleep(0.1)  # Невелика затримка між токенами
+                            
+                        except Exception as e:
+                            logger.error(f"Error checking {s}: {e}")
+                            continue
                         
-                        check_alerts(conn, s, ADMIN_CHAT_ID, cfg=cfg)
-            
             # ===== 4. CLEANUP БД =====
             if current_datetime.hour == 3 and current_minute == 0:
                 if not hasattr(main, 'last_cleanup_day') or main.last_cleanup_day != current_datetime.day:

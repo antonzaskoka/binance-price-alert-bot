@@ -34,11 +34,19 @@ def check_alerts(conn, symbol, admin_chat_id, cfg=None):
     if not cfg:
         return
 
-    # ===== TYPE 1: THRESHOLD ALERTS =====
-    for threshold_name, minutes in CHECKS:
-        threshold_key = f"{threshold_name}_threshold"
-        
-        alert_data = check_threshold_alert(conn, symbol, cfg, minutes, threshold_key)
+    # ✅ ВИПРАВЛЕНО: threshold alerts тільки для токенів з symbols.json
+    # Перевіряємо чи є threshold конфігурація
+    has_thresholds = all(
+        f"{name}_threshold" in cfg 
+        for name, _ in CHECKS
+    )
+
+    # ===== TYPE 1: THRESHOLD ALERTS (тільки для symbols.json) =====
+    if has_thresholds:
+        for threshold_name, minutes in CHECKS:
+            threshold_key = f"{threshold_name}_threshold"
+            
+            alert_data = check_threshold_alert(conn, symbol, cfg, minutes, threshold_key)
         
         if alert_data:
             alert_type = f"threshold_{threshold_name}"
