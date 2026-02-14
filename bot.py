@@ -508,10 +508,10 @@ def main():
                                 continue
                             
                             # ✅ НОВА ЛОГІКА: завантажуємо попередню годину (1 closed bar)
-                            from utils.binance_api import fetch_klines
+                            from utils.binance_api import fetch_futures_klines
                             
                             try:
-                                klines = fetch_klines(
+                                klines = fetch_futures_klines(
                                     symbol=s,
                                     interval="1h",
                                     start_time=previous_hour_start_ms,
