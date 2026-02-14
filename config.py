@@ -122,9 +122,6 @@ BINANCE_INTERVAL_MAP = {
     "1d": "1d",
 }
 
-# Volume alerts
-VOLUME_CHECK_INTERVAL = 3600  # Перевірка кожну годину (секунди)
-
 # ===== ФІЛЬТР АЛЕРТІВ: БЛИЗЬКІСТЬ ДО РІВНІВ =====
 # Алерт надсилається тільки якщо ціна була біля рівня ±LEVEL_PROXIMITY_PCT%
 LEVEL_PROXIMITY_PCT = 0.3  # 0.3% = діапазон ±0.3% від рівня

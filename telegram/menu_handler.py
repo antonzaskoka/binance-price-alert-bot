@@ -71,15 +71,6 @@ def handle_text(chat_id, text, send):
             )
             return
 
-        if text == "📊 Об'єми токенів":
-            user_state[chat_id] = {"step": "volume_select_threshold"}
-            send(
-                chat_id,
-                "📊 Обери діапазон середнього об'єму (avg 14d):",
-                reply_markup=volume_thresholds_menu()
-            )
-            return
-
         if text == "👁️ Переглянути рівні":
             levels_map = load_levels()
             tokens_with_levels = sorted(levels_map.keys())
@@ -389,62 +380,6 @@ def handle_text(chat_id, text, send):
             show_main_menu(chat_id, send)
             return
         # Якщо натиснув на рівень - просто ігноруємо
-        return
-
-    # ---- VOLUME: SELECT THRESHOLD ----
-    if step == "volume_select_threshold":
-        if text == "⬅️ Назад":
-            show_main_menu(chat_id, send)
-            return
-
-        # Парсинг "$100M+" -> 100_000_000
-        try:
-            text_clean = text.replace("$", "").replace("M+", "").strip()
-            avg_threshold = int(float(text_clean) * 1_000_000)
-        except:
-            send(chat_id, "❌ Некоректний вибір", reply_markup=volume_thresholds_menu())
-            return
-
-        user_state[chat_id] = {
-            "step": "volume_select_multiplier",
-            "avg_threshold": avg_threshold
-        }
-        send(
-            chat_id,
-            f"🚀 Обери мінімальний мультиплікатор ratio (volume_24h / avg_14d):",
-            reply_markup=volume_multipliers_menu(avg_threshold)
-        )
-        return
-
-    # ---- VOLUME: SELECT MULTIPLIER ----
-    if step == "volume_select_multiplier":
-        if text == "⬅️ Назад":
-            user_state[chat_id] = {"step": "volume_select_threshold"}
-            send(
-                chat_id,
-                "📊 Обери діапазон середнього об'єму (avg 14d):",
-                reply_markup=volume_thresholds_menu()
-            )
-            return
-
-        # Парсинг "1.5x" -> 1.5
-        try:
-            min_ratio = float(text.replace("x", "").strip())
-        except:
-            send(chat_id, "❌ Некоректний вибір", reply_markup=volume_multipliers_menu(user_state[chat_id].get("avg_threshold", 0)))
-            return
-
-        avg_threshold = user_state[chat_id].get("avg_threshold", 0)
-
-        send(chat_id, "⏳ Завантажую дані...")
-
-        # ✅ Завантажуємо і фільтруємо токени
-        from alerts.volume_list import get_volume_list
-        result_msg = get_volume_list(avg_threshold, min_ratio)
-
-        send(chat_id, result_msg)
-        show_main_menu(chat_id, send)
-        user_state[chat_id] = {"step": "main"}
         return
 
     # ---- SYMBOLS MENU ----

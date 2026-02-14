@@ -2,7 +2,7 @@
 Telegram клавіатури
 """
 # Закріплені токени (завжди перші в списку)
-PINNED_SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XAUUSDT", "XAGUSDT", "XPTUSDT", "XPDUSDT", "TSLAUSDT"]
+PINNED_SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XAUUSDT", "XAGUSDT", "XPTUSDT", "XPDUSDT", "TSLAUSDT", "PLTRUSDT"]
 
 
 def sort_with_pinned(symbols_list):
@@ -17,8 +17,7 @@ def main_menu():
     return {
         "keyboard": [
             ["📊 Подивитися котирування", "👁️ Переглянути рівні"],
-            ["📊 Об'єми токенів", "✏️ Виправити рівні"],
-            ["⚙️ Параметри токенів"]
+            ["✏️ Виправити рівні", "⚙️ Параметри токенів"]
         ],
         "resize_keyboard": True
     }
@@ -140,64 +139,6 @@ def dynamic_levels_keyboard_three_columns(levels_list):
         if i + 2 < len(levels_list):
             row.append(str(levels_list[i + 2]))
         keyboard.append(row)
-    keyboard.append(["⬅️ Назад"])
-    return {
-        "keyboard": keyboard,
-        "resize_keyboard": True
-    }
-
-def volume_thresholds_menu():
-    """
-    Кнопки з діапазонами avg об'єму з VOLUME_THRESHOLDS
-    """
-    from alerts.volume_thresholds import VOLUME_THRESHOLDS
-
-    keyboard = []
-    # Будуємо пари діапазонів з VOLUME_THRESHOLDS
-    # Сортуємо від більшого до меншого
-    sorted_thresholds = sorted(VOLUME_THRESHOLDS, key=lambda x: x[0], reverse=True)
-
-    for i in range(len(sorted_thresholds)):
-        upper = sorted_thresholds[i][0]
-        if i + 1 < len(sorted_thresholds):
-            lower = sorted_thresholds[i + 1][0]
-        else:
-            lower = 0
-
-        if upper == 0:
-            continue  # Пропускаємо нульовий поріг
-
-        label = f"${upper // 1_000_000}M+"
-        keyboard.append([label])
-
-    keyboard.append(["⬅️ Назад"])
-    return {
-        "keyboard": keyboard,
-        "resize_keyboard": True
-    }
-
-
-def volume_multipliers_menu(avg_threshold):
-    """
-    Кнопки з мультиплікаторами (стандартний набір)
-    """
-    # ✅ Стандартні мультиплікатори
-    multipliers = [1.3, 1.5, 2, 3, 4, 5, 6, 10, 15]
-
-    # Кнопки в 3 колонки
-    keyboard = []
-    for i in range(0, len(multipliers), 3):
-        row = []
-        for j in range(3):
-            if i + j < len(multipliers):
-                mult = multipliers[i + j]
-                # Форматуємо: 1.3, 1.5 з десятковою, решта без
-                if mult < 2:
-                    row.append(f"{mult}x")
-                else:
-                    row.append(f"{int(mult)}x")
-        keyboard.append(row)
-
     keyboard.append(["⬅️ Назад"])
     return {
         "keyboard": keyboard,

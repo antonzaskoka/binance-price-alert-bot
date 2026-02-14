@@ -368,6 +368,8 @@ def handle_update(update, conn):
         
         return
 
+        
+
     handle_text(chat_id, text, send_telegram_message)
 
 
