@@ -18,16 +18,13 @@ from alerts.symbols_manager import load_symbols as reload_symbols
 from alerts.checker import check_alerts
 from alerts.alert_types import calculate_range_pct
 from alerts.alert_formatter import calculate_atr
-from alerts.volume_alert import check_volume_alert, format_volume_alert
 from alerts.levels_manager import load_levels
 import alerts.levels_manager as lm
 from config import SYMBOLS, ADMIN_CHAT_ID, ALIVE_INTERVAL, RISK_USDT, LEVELS_FILE, SYMBOLS_FILE
 from charts.menu_chart import build_menu_chart
 from charts.level_detector import detect_support_resistance, format_detected_level_info
-from charts.volume_alert_chart import build_volume_alert_chart
-from database.db_manager import get_conn, ensure_tables, sync_klines, sync_hourly_klines, ensure_alerts_table
+from database.db_manager import get_conn, ensure_tables, sync_klines, ensure_alerts_table
 from database.db_cleanup import cleanup_old_data
-from database.models import load_hourly_bars
 from telegram.client import send_telegram_message, send_alert_chart, send_menu_chart
 from telegram.menu_handler import handle_text, handle_callback, show_main_menu
 from utils.binance_api import fetch_last_bars
@@ -285,114 +282,6 @@ def handle_update(update, conn):
         
         return
 
-    if text == "/export_db":
-        try:
-            import csv
-            import io
-            import zipfile
-            from datetime import datetime
-            
-            send_telegram_message(chat_id, "📦 Експортую дані для BTC, ETH, XAU...")
-            
-            # ✅ Список токенів для експорту
-            symbols_to_export = ["BTCUSDT", "ETHUSDT", "XAUUSDT"]
-            
-            # Створюємо ZIP архів в пам'яті
-            zip_buffer = io.BytesIO()
-            
-            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-                exported_count = 0
-                
-                for symbol in symbols_to_export:
-                    table = f"kline_{symbol.lower()}_1h"
-                    
-                    try:
-                        # Читаємо дані з таблиці
-                        cursor = conn.execute(f"""
-                            SELECT open_time_utc, open, high, low, close, volume, 
-                                   volume_usdt, volume_24h, volume_avg_14d, ratio
-                            FROM {table}
-                            ORDER BY open_time_ms ASC
-                        """)
-                        
-                        rows = cursor.fetchall()
-                        
-                        if not rows:
-                            logger.warning(f"No data for {symbol}")
-                            continue
-                        
-                        # Створюємо CSV в пам'яті
-                        csv_buffer = io.StringIO()
-                        writer = csv.writer(csv_buffer)
-                        
-                        # Заголовки
-                        writer.writerow([
-                            "timestamp", "open", "high", "low", "close", "volume",
-                            "volume_usdt", "volume_24h", "volume_avg_14d", "ratio"
-                        ])
-                        
-                        # Дані
-                        writer.writerows(rows)
-                        
-                        # Додаємо CSV в ZIP
-                        csv_content = csv_buffer.getvalue()
-                        zip_file.writestr(
-                            f"{symbol}_hourly_data.csv",
-                            csv_content.encode('utf-8')
-                        )
-                        
-                        exported_count += 1
-                        logger.info(f"Exported {symbol}: {len(rows)} bars")
-                        
-                    except Exception as e:
-                        logger.error(f"Error exporting {symbol}: {e}")
-                        continue
-            
-            if exported_count == 0:
-                send_telegram_message(chat_id, "⚠️ Немає даних для експорту")
-                return
-            
-            # Надсилаємо ZIP файл
-            zip_buffer.seek(0)
-            
-            from config import TG_API
-            import requests
-            
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"hourly_data_{timestamp}.zip"
-            
-            files = {
-                'document': (filename, zip_buffer.read(), 'application/zip')
-            }
-            
-            data = {
-                'chat_id': chat_id,
-                'caption': (
-                    f"📊 Hourly data export\n\n"
-                    f"📦 Files: {exported_count}\n"
-                    f"🪙 Tokens: {', '.join(symbols_to_export)}"
-                )
-            }
-            
-            response = requests.post(
-                f"{TG_API}/sendDocument",
-                data=data,
-                files=files,
-                timeout=60
-            )
-            
-            if response.status_code == 200:
-                send_telegram_message(chat_id, "✅ Експорт завершено!")
-            else:
-                logger.error(f"Telegram sendDocument error: {response.text}")
-                send_telegram_message(chat_id, f"❌ Помилка відправки: {response.text}")
-        
-        except Exception as e:
-            logger.exception("Export DB error")
-            send_telegram_message(chat_id, f"❌ Помилка: {e}")
-        
-        return
-
     if text == "/test_levels":
         try:
             from alerts.levels_manager import load_levels
@@ -440,6 +329,41 @@ def handle_update(update, conn):
             
         except Exception as e:
             logger.exception("Test levels error")
+            send_telegram_message(chat_id, f"❌ Помилка: {e}")
+        
+        return
+
+    if text == "/cleanup_hourly":
+        try:
+            send_telegram_message(chat_id, "🗑️ Видаляю годинні таблиці...")
+            
+            # Отримуємо список hourly таблиць
+            cursor = conn.execute("""
+                SELECT name FROM sqlite_master 
+                WHERE type='table' 
+                AND name LIKE 'kline_%_1h'
+            """)
+            
+            tables = [row[0] for row in cursor.fetchall()]
+            
+            # Видаляємо
+            deleted = 0
+            for table in tables:
+                conn.execute(f"DROP TABLE IF EXISTS {table}")
+                deleted += 1
+            
+            conn.commit()
+            
+            send_telegram_message(
+                chat_id, 
+                f"✅ Видалено {deleted} годинних таблиць\n\n"
+                f"💾 БД звільнено ~{deleted * 5} MB"
+            )
+            
+            logger.info(f"Deleted {deleted} hourly tables")
+            
+        except Exception as e:
+            logger.exception("Cleanup hourly error")
             send_telegram_message(chat_id, f"❌ Помилка: {e}")
         
         return
@@ -495,8 +419,6 @@ def main():
         handle_update(update, conn)
 
     last_alert_check = 0
-    last_markets_update = 0
-    binance_symbols = []
 
     while True:
         try:
@@ -544,58 +466,7 @@ def main():
                         
                         check_alerts(conn, s, ADMIN_CHAT_ID, cfg=cfg)
             
-            # ===== 4. ГОДИННІ БАРИ VOLUME ALERTS =====
-            if current_minute == 3:
-                if not hasattr(main, 'last_volume_hour') or main.last_volume_hour != current_datetime.hour:
-                    main.last_volume_hour = current_datetime.hour
-                    
-                    logger.info(f"Loading hourly bars for volume alerts (hour {current_datetime.hour})")
-                    
-                    if current_time - last_markets_update >= 21600:
-                        binance_symbols = fetch_all_usdt_symbols()
-                        last_markets_update = current_time
-                        logger.info(f"Updated markets list: {len(binance_symbols)} USDT pairs")
-                    
-                    excluded_symbols = ["XAUUSDT", "XAGUSDT"]
-                    
-                    for s in binance_symbols:
-                        if s in excluded_symbols:
-                            continue
-                        
-                        cfg = SYMBOLS.get(s, {"sl_small_pct": 0.01, "sl_big_pct": 0.02})
-                        
-                        added_hourly = sync_hourly_klines(conn, s)
-                        if added_hourly:
-                            logger.info(f"{s}: synced {added_hourly} hourly bars")
-                        
-                        alert_data = check_volume_alert(conn, s, cfg)
-
-                        if alert_data:
-                            msg = format_volume_alert(alert_data)
-                            
-                            # ✅ Завантажуємо df тільки для графіка
-                            df = load_hourly_bars(conn, s, limit=90)
-                            
-                            if df is not None:
-                                chart_path = build_volume_alert_chart(df, s)
-                                
-                                success = send_alert_chart(
-                                    chat_id=ADMIN_CHAT_ID,
-                                    symbol=s,
-                                    timeframe="1h",
-                                    chart_path=chart_path,
-                                    price=alert_data["current_price"],
-                                    reason=msg
-                                )
-                                
-                                if success:
-                                    logger.info(f"Volume alert sent: {s}")
-                                else:
-                                    logger.error(f"Failed to send volume alert: {s}")
-                        
-                        time.sleep(0.5)
-
-            # ===== 5. CLEANUP БД =====
+            # ===== 4. CLEANUP БД =====
             if current_datetime.hour == 3 and current_minute == 0:
                 if not hasattr(main, 'last_cleanup_day') or main.last_cleanup_day != current_datetime.day:
                     main.last_cleanup_day = current_datetime.day
@@ -607,7 +478,7 @@ def main():
                     except Exception as e:
                         logger.error(f"Database cleanup error: {e}")
             
-            # ===== 6. ALIVE PING =====
+            # ===== 5. ALIVE PING =====
             send_alive_ping(ADMIN_CHAT_ID)
             
             time.sleep(0.1)
