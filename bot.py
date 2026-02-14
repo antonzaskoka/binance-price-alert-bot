@@ -411,7 +411,7 @@ def main():
                 last_alert_check = current_time
             
             # ===== 3. ГОДИННІ БАРИ ДЛЯ LEVELS.JSON (2-га хвилина кожної години) =====
-            if current_minute == 2:
+            if current_minute == 10:
                 if not hasattr(main, 'last_levels_hour') or main.last_levels_hour != current_datetime.hour:
                     main.last_levels_hour = current_datetime.hour
                     
@@ -420,7 +420,7 @@ def main():
                     # Перезавантажуємо levels.json
                     lm._LEVELS_CACHE = {}
                     lm._LEVELS_MTIME = None
-                    levels_map = load_levels()
+                    levels_map = load_levels()  # ✅ Використовуємо глобальний import
                     
                     # Тільки токени з levels.json (виключаємо symbols.json)
                     levels_only_symbols = set(levels_map.keys()) - set(SYMBOLS.keys())
@@ -435,7 +435,7 @@ def main():
                             # Створюємо таблицю якщо немає
                             ensure_tables(conn, s)
                             
-                            # ✅ НОВА ЛОГІКА: завантажуємо 1 годинний бар
+                            # ✅ Завантажуємо 1 годинний бар
                             from utils.binance_api import fetch_klines
                             
                             now_ms = int(time.time() * 1000)
@@ -453,7 +453,6 @@ def main():
                                 continue
                             
                             # Конвертуємо в хвилинні бари (для сумісності)
-                            # Беремо high, low, open, close з годинного бару
                             k = klines[0]
                             open_price = float(k[1])
                             high = float(k[2])
@@ -470,10 +469,9 @@ def main():
                             )
                             conn.commit()
                             
-                            # Перевіряємо level touch (тільки)
+                            # ✅ Перевіряємо level touch (imports БЕЗ load_levels)
                             from alerts.alert_types import check_level_touch_alert
                             from alerts.alert_formatter import format_level_touch_alert
-                            from alerts.levels_manager import load_levels
                             from charts.alert_chart import build_alert_chart
                             from database.models import can_alert, record_alert, load_last_bars
                             
@@ -493,9 +491,8 @@ def main():
                                 if df is None:
                                     continue
                                 
-                                # Форматуємо повідомлення
-                                levels_map_current = load_levels()
-                                symbol_levels = levels_map_current.get(s, [])
+                                # ✅ Використовуємо levels_map з початку блоку
+                                symbol_levels = levels_map.get(s, [])
                                 
                                 msg, valid_levels = format_level_touch_alert(alert_data, df)
                                 if not msg:
@@ -523,7 +520,7 @@ def main():
                                 except Exception as e:
                                     logger.error(f"❌ Error sending level touch alert {s} {touched_level}: {e}")
                             
-                            time.sleep(0.1)  # Невелика затримка між токенами
+                            time.sleep(0.1)
                             
                         except Exception as e:
                             logger.error(f"Error checking {s}: {e}")
