@@ -466,7 +466,7 @@ def main():
                 last_alert_check = current_time
             
             # ===== 3. ГОДИННІ БАРИ ДЛЯ LEVELS.JSON (2-га хвилина кожної години) =====
-            if current_minute == 6:
+            if current_minute == 15:
                 if not hasattr(main, 'last_levels_hour') or main.last_levels_hour != current_datetime.hour:
                     main.last_levels_hour = current_datetime.hour
                     
@@ -533,7 +533,7 @@ def main():
                             bar_low = float(k[3])
                             bar_close = float(k[4])
                             
-                            logger.debug(f"{s}: previous hour [{bar_low:.2f} - {bar_high:.2f}]")
+                            logger.debug(f"{s}: previous hour [{bar_low:.6f} - {bar_high:.6f}]")
                             
                             # ✅ Перевіряємо перетин з рівнями (±0.5%)
                             from config import LEVEL_PROXIMITY_PCT
@@ -545,10 +545,13 @@ def main():
                                 level_min = level * (1 - gap_pct)
                                 level_max = level * (1 + gap_pct)
                                 
-                                # Перевірка перетину діапазонів
                                 if bar_high >= level_min and bar_low <= level_max:
                                     touched_levels.append(level)
-                                    logger.info(f"{s}: level {level} touched! Bar [{bar_low:.2f} - {bar_high:.2f}], Level range [{level_min:.2f} - {level_max:.2f}]")
+                                    logger.info(
+                                        f"{s}: level {level:.6f} touched! "
+                                        f"Bar [{bar_low:.6f} - {bar_high:.6f}], "
+                                        f"Level range [{level_min:.6f} - {level_max:.6f}]"
+                                    )
                             
                             if not touched_levels:
                                 logger.debug(f"{s}: no levels touched")
@@ -565,6 +568,9 @@ def main():
                             if not can_alert(conn, s, alert_type, 60):
                                 logger.info(f"BLOCKED by cooldown: {s} level {touched_level} (60 min)")
                                 continue
+
+                            # ✅ ДОДАНО: визначаємо now_ms
+                            now_ms = int(time.time() * 1000)
                             
                             # ✅ Завантажуємо 90 годинних барів для графіка
                             try:
