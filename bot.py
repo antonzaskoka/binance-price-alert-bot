@@ -13,7 +13,7 @@ import logging
 import requests
 import config
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from alerts.symbols_manager import load_symbols as reload_symbols
 from alerts.checker import check_alerts
 from alerts.alert_types import calculate_range_pct
@@ -466,7 +466,7 @@ def main():
                 last_alert_check = current_time
             
             # ===== 3. ГОДИННІ БАРИ ДЛЯ LEVELS.JSON (2-га хвилина кожної години) =====
-            if current_minute == 37:
+            if current_minute == 43:
                 if not hasattr(main, 'last_levels_hour') or main.last_levels_hour != current_datetime.hour:
                     main.last_levels_hour = current_datetime.hour
                     
