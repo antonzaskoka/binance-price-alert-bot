@@ -333,6 +333,61 @@ def handle_update(update, conn):
         
         return
 
+    if text == "/validate_levels":
+        try:
+            send_telegram_message(chat_id, "🔍 Перевіряю токени з levels.json...")
+            
+            from alerts.levels_manager import load_levels
+            from utils.binance_api import fetch_klines
+            import time
+            
+            lm._LEVELS_CACHE = {}
+            lm._LEVELS_MTIME = None
+            levels_map = load_levels()
+            
+            valid = []
+            invalid = []
+            
+            now_ms = int(time.time() * 1000)
+            hour_ago_ms = now_ms - 3600 * 1000
+            
+            for symbol in levels_map.keys():
+                try:
+                    klines = fetch_klines(
+                        symbol=symbol,
+                        interval="1h",
+                        start_time=hour_ago_ms,
+                        end_time=now_ms,
+                        limit=1
+                    )
+                    
+                    if klines:
+                        valid.append(symbol)
+                    else:
+                        invalid.append(symbol)
+                
+                except Exception:
+                    invalid.append(symbol)
+                
+                time.sleep(0.1)
+            
+            msg = f"📊 <b>Результати перевірки:</b>\n\n"
+            msg += f"✅ Валідні: {len(valid)}\n"
+            msg += f"❌ Неіснуючі: {len(invalid)}\n\n"
+            
+            if invalid:
+                msg += f"<b>Видалити з levels.json:</b>\n"
+                for s in invalid:
+                    msg += f"• {s}\n"
+            
+            send_telegram_message(chat_id, msg)
+            
+        except Exception as e:
+            logger.exception("Validate levels error")
+            send_telegram_message(chat_id, f"❌ Помилка: {e}")
+        
+        return
+
     handle_text(chat_id, text, send_telegram_message)
 
 
@@ -411,7 +466,7 @@ def main():
                 last_alert_check = current_time
             
             # ===== 3. ГОДИННІ БАРИ ДЛЯ LEVELS.JSON (2-га хвилина кожної години) =====
-            if current_minute == 10:
+            if current_minute == 20:
                 if not hasattr(main, 'last_levels_hour') or main.last_levels_hour != current_datetime.hour:
                     main.last_levels_hour = current_datetime.hour
                     
@@ -441,15 +496,21 @@ def main():
                             now_ms = int(time.time() * 1000)
                             hour_ago_ms = now_ms - 3600 * 1000
                             
-                            klines = fetch_klines(
-                                symbol=s,
-                                interval="1h",
-                                start_time=hour_ago_ms,
-                                end_time=now_ms,
-                                limit=1
-                            )
+                            try:
+                                klines = fetch_klines(
+                                    symbol=s,
+                                    interval="1h",
+                                    start_time=hour_ago_ms,
+                                    end_time=now_ms,
+                                    limit=1
+                                )
+                            except Exception as api_error:
+                                # Токен не існує або делістингований
+                                logger.warning(f"Skipping {s}: API error - {api_error}")
+                                continue
                             
                             if not klines:
+                                logger.warning(f"Skipping {s}: no data")
                                 continue
                             
                             # Конвертуємо в хвилинні бари (для сумісності)
@@ -458,15 +519,19 @@ def main():
                             high = float(k[2])
                             low = float(k[3])
                             close = float(k[4])
-                            
+
                             # Записуємо як "синтетичний" хвилинний бар
                             ts = k[0]
                             utc = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
                             
+                            # ✅ Використовуємо безпосередньо назву таблиці
+                            table = f'"{s.lower()}"'
+                            
                             conn.execute(
-                                f"INSERT OR IGNORE INTO {table_name(s)} VALUES (?,?,?,?,?,?,?)",
-                                (ts, utc, open_price, high, low, close, 0)  # volume = 0
+                                f"INSERT OR IGNORE INTO {table} VALUES (?,?,?,?,?,?,?)",
+                                (ts, utc, open_price, high, low, close, 0)
                             )
+                            
                             conn.commit()
                             
                             # ✅ Перевіряємо level touch (imports БЕЗ load_levels)
