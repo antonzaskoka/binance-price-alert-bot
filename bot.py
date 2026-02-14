@@ -465,8 +465,8 @@ def main():
                 
                 last_alert_check = current_time
             
-            # ===== 3. ГОДИННІ БАРИ ДЛЯ LEVELS.JSON (2-га хвилина кожної години) =====
-            if current_minute == 15:
+            # ===== 3. ГОДИННІ БАРИ ДЛЯ LEVELS.JSON (1-ша хвилина кожної години) =====
+            if current_minute == 1:
                 if not hasattr(main, 'last_levels_hour') or main.last_levels_hour != current_datetime.hour:
                     main.last_levels_hour = current_datetime.hour
                     
@@ -565,7 +565,7 @@ def main():
                             # ✅ Cooldown 60 хвилин
                             from database.models import can_alert, record_alert
                             
-                            if not can_alert(conn, s, alert_type, 60):
+                            if not can_alert(conn, s, alert_type, 180):
                                 logger.info(f"BLOCKED by cooldown: {s} level {touched_level} (60 min)")
                                 continue
 
