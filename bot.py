@@ -466,7 +466,7 @@ def main():
                 last_alert_check = current_time
             
             # ===== 3. ГОДИННІ БАРИ ДЛЯ LEVELS.JSON (2-га хвилина кожної години) =====
-            if current_minute == 2:
+            if current_minute == 6:
                 if not hasattr(main, 'last_levels_hour') or main.last_levels_hour != current_datetime.hour:
                     main.last_levels_hour = current_datetime.hour
                     
