@@ -11,7 +11,7 @@ from telegram.keyboards import (
     main_menu, back_menu, timeframe_menu, levels_menu,
     symbols_menu, param_names_readable,
     dynamic_symbols_keyboard, dynamic_levels_keyboard_three_columns,
-    sort_with_pinned
+    sort_with_pinned, reached_levels_period_menu
 )
 from config import LEVELS_FILE
 from alerts.symbols_manager import (
@@ -84,6 +84,16 @@ def handle_text(chat_id, text, send):
             else:
                 send(chat_id, "⚠️ Немає токенів з рівнями", reply_markup=main_menu())
             return
+
+        if text == "🎯 Досягнуті рівні":
+            user_state[chat_id] = {"step": "reached_levels_menu"}
+            send(
+                chat_id,
+                "⏱️ Обери період для перегляду досягнутих рівнів:",
+                reply_markup=reached_levels_period_menu()
+            )
+            return
+            
 
     # ---- SELECT SYMBOL (з кнопок або вручну) ----
     if step == "select_symbol":
@@ -380,6 +390,39 @@ def handle_text(chat_id, text, send):
             return
         # Якщо натиснув на рівень - просто ігноруємо
         return
+
+    # ДОДАНО: Досягнуті рівні - вибір періоду
+    if step == "reached_levels_menu":
+        if text == "⬅️ Назад":
+            show_main_menu(chat_id, send)
+            return
+        
+        # Визначаємо період
+        period_hours = None
+        if text == "⏱️ За 4 години":
+            period_hours = 4
+        elif text == "⏱️ За 12 годин":
+            period_hours = 12
+        elif text == "⏱️ За 24 години":
+            period_hours = 24
+        else:
+            send(chat_id, "❌ Невідома команда", reply_markup=reached_levels_period_menu())
+            return
+        
+        # Викликаємо функцію отримання рівнів
+        from alerts.reached_levels import get_reached_levels
+        
+        result = get_reached_levels(period_hours)
+        
+        send(chat_id, result, reply_markup=back_menu())
+        user_state[chat_id] = {"step": "reached_levels_result"}
+        return
+
+    # ДОДАНО: Досягнуті рівні - результат (обробка "Назад")
+    if step == "reached_levels_result":
+        if text == "⬅️ Назад":
+            show_main_menu(chat_id, send)
+            return
 
     # ---- SYMBOLS MENU ----
     if step == "symbols_menu":

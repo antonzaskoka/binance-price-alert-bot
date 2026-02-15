@@ -17,7 +17,7 @@ def main_menu():
     return {
         "keyboard": [
             ["📊 Подивитися котирування", "👁️ Переглянути рівні"],
-            ["✏️ Виправити рівні", "⚙️ Параметри токенів"]
+            ["✏️ Виправити рівні", "⚙️ Параметри токенів", "🎯 Досягнуті рівні"]
         ],
         "resize_keyboard": True
     }
@@ -144,3 +144,13 @@ def dynamic_levels_keyboard_three_columns(levels_list):
         "keyboard": keyboard,
         "resize_keyboard": True
     }
+
+def reached_levels_period_menu():
+    """Меню вибору періоду для досягнутих рівнів"""
+    keyboard = [
+        ["⏱️ За 4 години"],
+        ["⏱️ За 12 годин"],
+        ["⏱️ За 24 години"],
+        ["⬅️ Назад"]
+    ]
+    return {"keyboard": keyboard, "resize_keyboard": True}
