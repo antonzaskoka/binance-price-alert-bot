@@ -33,6 +33,42 @@ def calculate_atr(df):
 
     return sum(true_ranges) / len(true_ranges)
 
+def calculate_natr(df, period=90):
+    """
+    Розраховує Normalized ATR (NATR) у відсотках
+    
+    NATR = (ATR / Close) * 100%
+    
+    Args:
+        df: DataFrame з колонками open, high, low, close
+        period: період для розрахунку (за замовчуванням 90)
+    
+    Returns:
+        float або None: NATR у відсотках
+    """
+    if len(df) < period:
+        return None
+    
+    # Беремо останні N барів
+    df_period = df.tail(period).copy()
+    
+    # Розраховуємо ATR
+    atr = calculate_atr(df_period)
+    
+    if not atr:
+        return None
+    
+    # Остання ціна закриття
+    last_close = df_period['close'].iloc[-1]
+    
+    if last_close <= 0:
+        return None
+    
+    # NATR у відсотках
+    natr = (atr / last_close) * 100
+    
+    return natr
+
 
 def format_threshold_alert(alert_data, df):
     """
@@ -64,6 +100,9 @@ def format_threshold_alert(alert_data, df):
 
     # ATR з кольоровим емоджі
     atr = calculate_atr(df)
+
+    # ✅ ДОДАНО: Розраховуємо NATR
+    natr = calculate_natr(df)
     
     if atr < sl_small:
         atr_emoji = "🟢"  # зелений
@@ -78,11 +117,11 @@ def format_threshold_alert(alert_data, df):
 
     # Визначаємо назву алерта за діапазоном часу
     if minutes <= 2:
-        alert_label = "📈⚡💨⚡💨SMALL RANGE"
+        alert_label = "📈⚡💨⚡💨NARROW RANGE"
     elif minutes <= 20:
         alert_label = "📈🚀💥🚀💥MIDDLE RANGE"
     else:
-        alert_label = "📈🔥🌟🔥🌟LONG RANGE"
+        alert_label = "📈🔥🌟🔥🌟WIDE RANGE"
 
     # ✅ Отримуємо threshold для підпису
     threshold_value = cfg[f"{threshold_name.lower()}_threshold"]
@@ -95,7 +134,8 @@ def format_threshold_alert(alert_data, df):
         f"💰 Price (last bar open): <b>${price:.4f}</b>\n"
         f"📉 Min price ({minutes}m): {min_price:.4f}\n"
         f"📈 Max price ({minutes}m): {max_price:.4f}\n\n"
-         f"📐 ATR (90m): {atr_emoji} <b>{atr:.4f}</b>\n\n"
+        f"📐 ATR (90m): {atr_emoji} <b>{atr:.4f}</b>\n"
+        f"📐📐 NATR(90): <b>{natr:.2f}%</b>\n\n"
         f"💲 SL Small: <b>${sl_small:.4f}</b>\n"
         f"🌎🚀 Position (big): <b>{size_small_sl:.4f} {symbol[:-4]}</b>\n\n"
         f"💲💸 SL Big: <b>${sl_big:.4f}</b>\n"
@@ -152,6 +192,8 @@ def format_level_touch_alert(alert_data, df):
     else:
         atr_emoji = "🔴"  # червоний
 
+    natr = calculate_natr(df)
+
     # Визначаємо дію
     if crossed_up:
         action = "🔼 CROSSED UP"
@@ -170,10 +212,11 @@ def format_level_touch_alert(alert_data, df):
         f"{action} level: <b>{touched_level:.4f}</b>\n\n"
         f"💰 Price (last bar open): <b>{price:.4f}</b>\n\n"
         f"📊 Price movement:\n"
-        f"   Long (55m): <b>{long_pct:.2f}%</b>\n"
+        f"   Wide (55m): <b>{long_pct:.2f}%</b>\n"
         f"   Middle (20m): <b>{middle_pct:.2f}%</b>\n"
-        f"   Short (2m): <b>{short_pct:.2f}%</b>\n\n"
-         f"📐 ATR (90m): {atr_emoji} <b>{atr:.4f}</b>\n\n"
+        f"   Narrow (2m): <b>{short_pct:.2f}%</b>\n\n"
+        f"📐 ATR (90m): {atr_emoji} <b>{atr:.4f}</b>\n"
+        f"📐📐 NATR(90): <b>{natr:.2f}%</b>\n\n"
         f"💲   SL Small: <b>${sl_small:.4f}</b>\n"
         f"🌎🚀 Position (big): <b>{size_small_sl:.4f} {symbol[:-4]}</b>\n\n"
         f"💲💸 SL Big: <b>${sl_big:.4f}</b>\n"

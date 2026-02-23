@@ -2,7 +2,7 @@
 Telegram клавіатури
 """
 # Закріплені токени (завжди перші в списку)
-PINNED_SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XAUUSDT", "XAGUSDT", "XPTUSDT", "XPDUSDT", "TSLAUSDT", "PLTRUSDT", "AMZNUSDT", "COOINUSDT", "CRCLUSDT", "HOODUSDT", "MSTRUSDT"]
+PINNED_SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XAUUSDT", "XAGUSDT", "XPTUSDT", "XPDUSDT", "TSLAUSDT", "PLTRUSDT", "AMZNUSDT", "COINUSDT", "CRCLUSDT", "HOODUSDT", "MSTRUSDT"]
 
 
 def sort_with_pinned(symbols_list):
@@ -152,5 +152,16 @@ def reached_levels_period_menu():
         ["⏱️ За 12 годин"],
         ["⏱️ За 24 години"],
         ["⬅️ Назад"]
+    ]
+    return {"keyboard": keyboard, "resize_keyboard": True}
+
+def numeric_keyboard():
+    """Клавіатура з цифрами для введення ціни"""
+    keyboard = [
+        ["1", "2", "3"],
+        ["4", "5", "6"],
+        ["7", "8", "9"],
+        [".", "0", "⌫"],
+        ["✅ Готово", "⬅️ Назад"]
     ]
     return {"keyboard": keyboard, "resize_keyboard": True}

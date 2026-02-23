@@ -609,6 +609,7 @@ def main():
                             from alerts.alert_formatter import calculate_atr
                             
                             atr = calculate_atr(df)
+                            natr = calculate_natr(df)
                             
                             msg = (
                                 f"🎯 {s} — LEVEL TOUCH\n"
@@ -621,6 +622,9 @@ def main():
                             if atr:
                                 atr_pct = (atr / bar_close) * 100
                                 msg += f"📏 ATR (90h): {atr:.4f} ({atr_pct:.2f}%)\n\n"
+                            
+                            if natr:
+                                msg += f"📐 NATR(90): {natr:.2f}%\n"
                             
                             # SL та позиція
                             sl_small = bar_close * default_cfg["sl_small_pct"]

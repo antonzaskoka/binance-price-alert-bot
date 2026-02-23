@@ -11,7 +11,7 @@ from telegram.keyboards import (
     main_menu, back_menu, timeframe_menu, levels_menu,
     symbols_menu, param_names_readable,
     dynamic_symbols_keyboard, dynamic_levels_keyboard_three_columns,
-    sort_with_pinned, reached_levels_period_menu
+    sort_with_pinned, reached_levels_period_menu, numeric_keyboard
 )
 from config import LEVELS_FILE
 from alerts.symbols_manager import (
@@ -76,10 +76,18 @@ def handle_text(chat_id, text, send):
 
             if tokens_with_levels:
                 user_state[chat_id] = {"step": "view_levels_symbol"}
+                
+                # ✅ ОБМЕЖЕННЯ: тільки перші 21 токен (7 рядків × 3 колонки)
+                tokens_to_show = tokens_with_levels[:21]
+                
+                msg = "📌 Обери токен для перегляду рівнів:"
+                if len(tokens_with_levels) > 21:
+                    msg += f"\n\n⚠️ Показано {len(tokens_to_show)} з {len(tokens_with_levels)} токенів"
+                
                 send(
                     chat_id,
-                    "📌 Обери токен для перегляду рівнів:",
-                    reply_markup=dynamic_levels_keyboard_three_columns(sort_with_pinned(tokens_with_levels))
+                    msg,
+                    reply_markup=dynamic_levels_keyboard_three_columns(sort_with_pinned(tokens_to_show))
                 )
             else:
                 send(chat_id, "⚠️ Немає токенів з рівнями", reply_markup=main_menu())
@@ -241,7 +249,14 @@ def handle_text(chat_id, text, send):
             "step": "level_add_price",
             "symbol": symbol
         }
-        send(chat_id, f"💰 Введи ціну рівня для <b>{symbol}</b>")
+        
+        # ✅ ВИПРАВЛЕНО: Показуємо цифрову клавіатуру
+        from telegram.keyboards import numeric_keyboard
+        send(
+            chat_id, 
+            f"💰 Введи ціну рівня для <b>{symbol}</b>",
+            reply_markup=numeric_keyboard()
+        )
         return
 
     # ---- ADD LEVEL: PRICE ----
