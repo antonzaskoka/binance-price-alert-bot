@@ -11,7 +11,7 @@ def sort_with_pinned(symbols_list, limit=21):
     """
     pinned = [s for s in PINNED_SYMBOLS if s in symbols_list]
     rest = sorted([s for s in symbols_list if s not in PINNED_SYMBOLS])
-    result = pinned + unpinned
+    result = pinned + rest
     
     return result[:limit]
 
