@@ -247,28 +247,101 @@ def handle_text(chat_id, text, send):
 
         user_state[chat_id] = {
             "step": "level_add_price",
-            "symbol": symbol
+            "symbol": symbol,
+            "price_input": ""  # ✅ ДОДАНО: Буфер для накопичення цифр
         }
         
         # ✅ ВИПРАВЛЕНО: Показуємо цифрову клавіатуру
         from telegram.keyboards import numeric_keyboard
         send(
             chat_id, 
-            f"💰 Введи ціну рівня для <b>{symbol}</b>",
+            f"💰 Введи ціну рівня для <b>{symbol}</b>\n\nПоточне значення: <code>_</code>",
             reply_markup=numeric_keyboard()
         )
         return
 
     # ---- ADD LEVEL: PRICE ----
     if step == "level_add_price":
+        symbol = user_state[chat_id]["symbol"]
+        current_input = user_state[chat_id].get("price_input", "")
+        
+        # ✅ Обробка кнопок
+        if text == "⬅️ Назад":
+            user_state[chat_id] = {"step": "levels_menu"}
+            send(chat_id, "✏️ Виправити рівні", reply_markup=levels_menu())
+            return
+        
+        if text == "⌫":  # Backspace
+            current_input = current_input[:-1]
+            user_state[chat_id]["price_input"] = current_input
+            
+            from telegram.keyboards import numeric_keyboard
+            send(
+                chat_id,
+                f"💰 Введи ціну рівня для <b>{symbol}</b>\n\nПоточне значення: <code>{current_input or '_'}</code>",
+                reply_markup=numeric_keyboard()
+            )
+            return
+        
+        if text == "✅ Готово":
+            # ✅ Підтверджуємо введення
+            if not current_input:
+                send(chat_id, "❌ Ціна порожня, введи число")
+                return
+            
+            try:
+                price = float(current_input)
+            except ValueError:
+                send(chat_id, "❌ Некоректна ціна, введи число")
+                return
+            
+            # Зберігаємо рівень
+            if os.path.exists(LEVELS_FILE):
+                with open(LEVELS_FILE, "r") as f:
+                    data = json.load(f)
+            else:
+                data = {}
+
+            data.setdefault(symbol, [])
+            data[symbol].append(price)
+            data[symbol] = sorted(set(data[symbol]))
+
+            with open(LEVELS_FILE, "w") as f:
+                json.dump(data, f, indent=2)
+
+            send(
+                chat_id,
+                f"✅ Рівень {price} для {symbol} додано",
+                reply_markup=levels_menu()
+            )
+            user_state[chat_id] = {"step": "levels_menu"}
+            return
+        
+        # ✅ Накопичуємо цифри
+        if text in ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "."]:
+            # Перевірка на повторну крапку
+            if text == "." and "." in current_input:
+                return  # Ігноруємо другу крапку
+            
+            current_input += text
+            user_state[chat_id]["price_input"] = current_input
+            
+            from telegram.keyboards import numeric_keyboard
+            send(
+                chat_id,
+                f"💰 Введи ціну рівня для <b>{symbol}</b>\n\nПоточне значення: <code>{current_input}</code>",
+                reply_markup=numeric_keyboard()
+            )
+            return
+        
+        # ✅ Якщо користувач ввів число вручну (без клавіатури)
         try:
             price = float(text)
         except ValueError:
-            send(chat_id, "❌ Некоректна ціна, введи число")
+            send(chat_id, "❌ Некоректна ціна")
             return
 
-        symbol = user_state[chat_id]["symbol"]
-
+        # Зберігаємо рівень
         if os.path.exists(LEVELS_FILE):
             with open(LEVELS_FILE, "r") as f:
                 data = json.load(f)
