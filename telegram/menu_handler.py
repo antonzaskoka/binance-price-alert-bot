@@ -47,7 +47,7 @@ def handle_text(chat_id, text, send):
                 
                 send(
                     chat_id,
-                    "📊 Обери токен або введи назву (наприклад btc + лінія на 81050):",
+                    "📊 Обери токен або введи назву (наприклад btc, 81050):",
                     reply_markup=dynamic_levels_keyboard_three_columns(PINNED_SYMBOLS)
                 )
                 return
@@ -206,10 +206,13 @@ def handle_text(chat_id, text, send):
             # Динамічні кнопки з токенами з levels.json + symbols.json
             levels_map = load_levels()
             symbols_map = load_symbols()
-            all_tokens = sorted(set(levels_map.keys()) | set(symbols_map.keys()))
+            all_tokens = list(set(levels_map.keys()) | set(symbols_map.keys()))
 
             if all_tokens:
                 user_state[chat_id] = {"step": "level_add_symbol"}
+
+                tokens_to_show = sort_with_pinned(all_tokens, limit=21)
+
                 send(
                     chat_id,
                     "📌 Обери токен або введи новий:",
@@ -274,25 +277,19 @@ def handle_text(chat_id, text, send):
         if text == "⌫":  # Backspace
             current_input = current_input[:-1]
             user_state[chat_id]["price_input"] = current_input
-            
-            from telegram.keyboards import numeric_keyboard
-            send(
-                chat_id,
-                f"💰 Введи ціну рівня для <b>{symbol}</b>\n\nПоточне значення: <code>{current_input or '_'}</code>",
-                reply_markup=numeric_keyboard()
-            )
+            # ✅ НЕ відправляємо повідомлення, просто оновлюємо стан
             return
         
         if text == "✅ Готово":
             # ✅ Підтверджуємо введення
             if not current_input:
-                send(chat_id, "❌ Ціна порожня, введи число")
+                send(chat_id, "❌ Ціна порожня, введи число", reply_markup=numeric_keyboard())
                 return
             
             try:
                 price = float(current_input)
             except ValueError:
-                send(chat_id, "❌ Некоректна ціна, введи число")
+                send(chat_id, "❌ Некоректна ціна, введи число", reply_markup=numeric_keyboard())
                 return
             
             # Зберігаємо рівень
@@ -309,15 +306,16 @@ def handle_text(chat_id, text, send):
             with open(LEVELS_FILE, "w") as f:
                 json.dump(data, f, indent=2)
 
+            # ✅ ОДНЕ ФІНАЛЬНЕ ПОВІДОМЛЕННЯ
             send(
                 chat_id,
-                f"✅ Рівень {price} для {symbol} додано",
+                f"✅ Рівень <b>{price}</b> для <b>{symbol}</b> додано",
                 reply_markup=levels_menu()
             )
             user_state[chat_id] = {"step": "levels_menu"}
             return
         
-        # ✅ Накопичуємо цифри
+        # ✅ Накопичуємо цифри (БЕЗ відправки повідомлення)
         if text in ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "."]:
             # Перевірка на повторну крапку
             if text == "." and "." in current_input:
@@ -326,19 +324,14 @@ def handle_text(chat_id, text, send):
             current_input += text
             user_state[chat_id]["price_input"] = current_input
             
-            from telegram.keyboards import numeric_keyboard
-            send(
-                chat_id,
-                f"💰 Введи ціну рівня для <b>{symbol}</b>\n\nПоточне значення: <code>{current_input}</code>",
-                reply_markup=numeric_keyboard()
-            )
+            # ✅ НЕ відправляємо нове повідомлення, просто оновлюємо стан
             return
         
         # ✅ Якщо користувач ввів число вручну (без клавіатури)
         try:
             price = float(text)
         except ValueError:
-            send(chat_id, "❌ Некоректна ціна")
+            send(chat_id, "❌ Некоректна ціна", reply_markup=numeric_keyboard())
             return
 
         # Зберігаємо рівень
@@ -357,7 +350,7 @@ def handle_text(chat_id, text, send):
 
         send(
             chat_id,
-            f"✅ Рівень {price} для {symbol} додано",
+            f"✅ Рівень <b>{price}</b> для <b>{symbol}</b> додано",
             reply_markup=levels_menu()
         )
         user_state[chat_id] = {"step": "levels_menu"}

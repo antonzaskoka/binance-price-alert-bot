@@ -5,13 +5,15 @@ Telegram клавіатури
 PINNED_SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XAUUSDT", "XAGUSDT", "XPTUSDT", "XPDUSDT", "TSLAUSDT", "PLTRUSDT", "AMZNUSDT", "COINUSDT", "CRCLUSDT", "HOODUSDT", "MSTRUSDT"]
 
 
-def sort_with_pinned(symbols_list):
+def sort_with_pinned(symbols_list, limit=21):
     """
     Сортує список: закріплені першими, решта алфавітно.
     """
     pinned = [s for s in PINNED_SYMBOLS if s in symbols_list]
     rest = sorted([s for s in symbols_list if s not in PINNED_SYMBOLS])
-    return pinned + rest
+    result = pinned + unpinned
+    
+    return result[:limit]
 
 def main_menu():
     return {
