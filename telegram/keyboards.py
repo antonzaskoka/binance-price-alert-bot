@@ -2,7 +2,7 @@
 Telegram клавіатури
 """
 # Закріплені токени (завжди перші в списку)
-PINNED_SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XAUUSDT", "XAGUSDT", "XPTUSDT", "XPDUSDT", "TSLAUSDT", "PLTRUSDT"]
+PINNED_SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XAUUSDT", "XAGUSDT", "XPTUSDT", "XPDUSDT", "TSLAUSDT", "PLTRUSDT", "AMZNUSDT", "COOINUSDT", "CRCLUSDT", "HOODUSDT", "MSTRUSDT"]
 
 
 def sort_with_pinned(symbols_list):
