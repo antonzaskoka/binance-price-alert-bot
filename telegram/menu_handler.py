@@ -72,13 +72,13 @@ def handle_text(chat_id, text, send):
 
         if text == "👁️ Переглянути рівні":
             levels_map = load_levels()
-            tokens_with_levels = sorted(levels_map.keys())
+            tokens_with_levels = list(levels_map.keys())
 
             if tokens_with_levels:
                 user_state[chat_id] = {"step": "view_levels_symbol"}
                 
                 # ✅ ОБМЕЖЕННЯ: тільки перші 21 токен (7 рядків × 3 колонки)
-                tokens_to_show = tokens_with_levels[:21]
+                tokens_to_show = sort_with_pinned(tokens_with_levels, limit  =21)
                 
                 msg = "📌 Обери токен для перегляду рівнів:"
                 if len(tokens_with_levels) > 21:
