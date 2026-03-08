@@ -606,7 +606,7 @@ def main():
                             df = pd.DataFrame(rows)
                             
                             # ✅ Форматуємо повідомлення
-                            from alerts.alert_formatter import calculate_atr
+                            from alerts.alert_formatter import calculate_atr, calculate_natr
                             
                             atr = calculate_atr(df)
                             natr = calculate_natr(df)
